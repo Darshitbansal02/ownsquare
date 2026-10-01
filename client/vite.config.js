@@ -11,5 +11,11 @@ export default defineConfig(({ mode }) => {
   if (!["http:", "https:"].includes(url.protocol) || !url.pathname.endsWith("/api/v1")) {
     throw new Error("VITE_API_BASE_URL must be an HTTP(S) URL ending in /api/v1");
   }
-  return { plugins: [react()], server: { port: 5173 } };
+  return {
+    plugins: [react()],
+    resolve: {
+      dedupe: ["react", "react-dom"]
+    },
+    server: { port: 5173 }
+  };
 });
