@@ -1,63 +1,42 @@
-import mongoose from 'mongoose';
-import { PROPERTY_STATUS, PROPERTY_TYPES } from '../../shared/constants.js';
+import mongoose from "mongoose";
+import { PROPERTY_STATUS, PROPERTY_TYPES } from "../../../shared/constants.js";
+import { count, enumField, mediaSchema, options, ref, text } from "./helpers.js";
+import { unitPrice } from "../utils/money.js";
 
-const mediaSchema = new mongoose.Schema(
-  {
-    url: { type: String, required: true },
-    publicId: { type: String, required: true },
-    name: { type: String, required: true }
+const percent = { type: Number, min: 0, max: 100, default: null, validate: (value) => value === null || Number.isFinite(value) };
+export const propertySchema = new mongoose.Schema({
+  title: text(3, 150), description: text(20, 10000),
+  type: { type: String, enum: Object.values(PROPERTY_TYPES), default: null },
+  address: text(1, 300), city: text(1, 100), state: text(1, 100),
+  pincode: { type: String, match: /^\d{6}$/, default: null },
+  geo: {
+    type: new mongoose.Schema({
+      lat: { type: Number, required: true, min: -90, max: 90 },
+      lng: { type: Number, required: true, min: -180, max: 180 }
+    }, { _id: false, strict: "throw" }), default: null
   },
-  { _id: false }
-);
-
-const propertySchema = new mongoose.Schema(
-  {
-    title: { type: String, trim: true, maxlength: 150 },
-    description: { type: String, trim: true, maxlength: 10000 },
-    type: { type: String, enum: Object.values(PROPERTY_TYPES) },
-    address: { type: String, trim: true, maxlength: 300 },
-    city: { type: String, trim: true, maxlength: 100 },
-    state: { type: String, trim: true, maxlength: 100 },
-    pincode: { type: String, trim: true, maxlength: 6 },
-    geo: {
-      lat: { type: Number, min: -90, max: 90 },
-      lng: { type: Number, min: -180, max: 180 }
-    },
-    areaSqft: { type: Number, min: 0 },
-    images: { type: [mediaSchema], default: [] },
-    documents: { type: [mediaSchema], default: [] },
-    valuation: { type: Number, min: 0 }, // Integer paise
-    totalUnits: { type: Number, min: 1 },
-    unitPrice: { type: Number, min: 0 }, // Integer paise
-    minUnits: { type: Number, default: 1, min: 1 },
-    maxUnitsPerInvestor: { type: Number, default: null },
-    unitsSold: { type: Number, default: 0, min: 0 },
-    expectedAppreciationPct: { type: Number, min: 0, max: 100 },
-    rentalYieldPct: { type: Number, min: 0, max: 100 },
-    holdingPeriodMonths: { type: Number, min: 1 },
-    status: {
-      type: String,
-      enum: Object.values(PROPERTY_STATUS),
-      default: PROPERTY_STATUS.DRAFT
-    },
-    rejectionReason: { type: String, default: null },
-    brokerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    salePrice: { type: Number, default: null }, // Integer paise
-    liveAt: { type: Date, default: null },
-    fundedAt: { type: Date, default: null },
-    soldAt: { type: Date, default: null },
-    version: { type: Number, default: 0 }
-  },
-  {
-    timestamps: true
+  areaSqft: { type: Number, default: null, validate: (value) => value === null || (Number.isFinite(value) && value > 0) },
+  images: { type: [mediaSchema], default: [] }, documents: { type: [mediaSchema], default: [] },
+  valuation: count(1, false), totalUnits: count(1, false), unitPrice: count(1, false),
+  minUnits: count(1, false), maxUnitsPerInvestor: count(1, false), unitsSold: count(0, true, 0),
+  expectedAppreciationPct: percent, rentalYieldPct: percent, holdingPeriodMonths: count(1, false),
+  status: enumField(PROPERTY_STATUS, PROPERTY_STATUS.DRAFT), rejectionReason: text(1, 2000),
+  brokerId: ref("User"), createdBy: ref("User", true), approvedBy: ref("User"),
+  salePrice: count(1, false),
+  liveAt: { type: Date, default: null }, fundedAt: { type: Date, default: null }, soldAt: { type: Date, default: null },
+  version: count(0, true, 0)
+}, options);
+propertySchema.pre("validate", function () {
+  if (this.valuation !== null && this.totalUnits !== null) {
+    if (this.unitPrice !== unitPrice(this.valuation, this.totalUnits)) this.invalidate("unitPrice", "Unit price must match financials");
   }
-);
-
+  if (this.totalUnits !== null) {
+    for (const field of ["unitsSold", "minUnits", "maxUnitsPerInvestor"]) {
+      if (this[field] !== null && this[field] > this.totalUnits) this.invalidate(field, "Cannot exceed totalUnits");
+    }
+  }
+});
 propertySchema.index({ status: 1, createdAt: -1, _id: -1 });
 propertySchema.index({ brokerId: 1, status: 1 });
 propertySchema.index({ city: 1, type: 1, status: 1 });
 propertySchema.index({ unitPrice: 1 });
-
-export const Property = mongoose.models.Property || mongoose.model('Property', propertySchema);

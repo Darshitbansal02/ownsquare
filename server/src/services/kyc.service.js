@@ -1,93 +1,56 @@
-import mongoose from 'mongoose';
-import { User } from '../models/index.js';
-import { ApiError } from '../utils/ApiError.js';
-import { ROLES, KYC_STATUS } from '../../shared/constants.js';
-import { ERROR_CODES } from '../../shared/errorCodes.js';
+import { ApiError } from "../utils/ApiError.js";
+import { requireActor } from "../utils/actors.js";
+import { userDTO } from "../utils/dto.js";
+import { requireFeature } from "../utils/actors.js";
+import { inTransaction } from "../utils/transaction.js";
 
-export class KycService {
-  /**
-   * POST /kyc
-   * Investor submits dummy ID document and selfie for verification.
-   */
-  async submitKyc(userId, data) {
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      throw ApiError.badRequest('Invalid user ID', ERROR_CODES.VALIDATION_ERROR);
-    }
+export function createKycService({ connection, models, features, notifications }) {
+  const { User } = models;
 
-    const user = await User.findById(userId);
-    if (!user) {
-      throw ApiError.notFound('User not found', ERROR_CODES.NOT_FOUND);
-    }
-
-    if (user.role !== ROLES.INVESTOR) {
-      throw ApiError.forbidden('Only investors can submit KYC', ERROR_CODES.FORBIDDEN);
-    }
-
-    if (user.kyc?.status === KYC_STATUS.PENDING || user.kyc?.status === KYC_STATUS.APPROVED) {
-      throw ApiError.conflict('KYC has already been submitted or approved', ERROR_CODES.KYC_ALREADY_SUBMITTED);
-    }
-
-    user.kyc = {
-      status: KYC_STATUS.PENDING,
-      docs: data.docs,
-      selfie: data.selfie,
-      reason: null,
-      reviewedBy: null,
-      reviewedAt: null
-    };
-
-    await user.save();
-
-    return {
-      status: user.kyc.status,
-      docs: user.kyc.docs,
-      selfie: user.kyc.selfie,
-      reason: user.kyc.reason
-    };
+  // POST /kyc. Dummy documents only; assets must already be privately uploaded by this investor.
+  async function submit(actorId, data) {
+    requireFeature(features, "kyc");
+    return inTransaction(connection, async (session) => {
+      const investor = await requireActor(models, actorId, ["INVESTOR"], session);
+      if (["PENDING", "APPROVED"].includes(investor.kyc.status)) {
+        throw new ApiError("KYC_ALREADY_SUBMITTED", "KYC has already been submitted or approved");
+      }
+      const updated = await User.findOneAndUpdate({ _id: investor._id },
+        { $set: { kyc: { status: "PENDING", docs: data.docs, selfie: data.selfie, reason: null,
+          reviewedBy: null, reviewedAt: null } } },
+        { session, new: true, runValidators: true });
+      return { status: updated.kyc.status, docs: updated.kyc.docs, selfie: updated.kyc.selfie, reason: null };
+    });
   }
 
-  /**
-   * PATCH /admin/kyc/:userId
-   * Admin approves or rejects pending investor KYC with mandatory reason if rejected.
-   */
-  async reviewKyc(userId, data, adminId) {
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      throw ApiError.badRequest('Invalid user ID', ERROR_CODES.VALIDATION_ERROR);
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      throw ApiError.notFound('User not found', ERROR_CODES.NOT_FOUND);
-    }
-
-    if (user.role !== ROLES.INVESTOR) {
-      throw ApiError.badRequest('KYC review is only applicable for investor accounts', ERROR_CODES.VALIDATION_ERROR);
-    }
-
-    if (user.kyc?.status !== KYC_STATUS.PENDING) {
-      throw ApiError.conflict('KYC review is only permitted for submissions in PENDING status', ERROR_CODES.INVALID_KYC_STATUS);
-    }
-
-    user.kyc.status = data.status;
-    user.kyc.reason = data.status === KYC_STATUS.REJECTED ? data.reason : null;
-    user.kyc.reviewedBy = adminId;
-    user.kyc.reviewedAt = new Date();
-
-    await user.save();
-
-    return {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      isActive: user.isActive,
-      brokerApproved: user.brokerApproved,
-      kyc: user.kyc,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    };
+  // PATCH /admin/kyc/:userId. Review is admin-only and permitted only from PENDING.
+  async function review(actorId, investorId, data) {
+    requireFeature(features, "kyc");
+    return inTransaction(connection, async (session) => {
+      const admin = await requireActor(models, actorId, ["ADMIN"], session);
+      if (data.status === "REJECTED" && (typeof data.reason !== "string" || !data.reason.trim())) {
+        throw new ApiError("VALIDATION_ERROR", "A rejection reason is required");
+      }
+      const investor = await User.findById(investorId).session(session);
+      if (!investor) throw new ApiError("NOT_FOUND", "Investor not found");
+      if (investor.role !== "INVESTOR") throw new ApiError("VALIDATION_ERROR", "KYC applies to investor accounts only");
+      if (investor.kyc.status !== "PENDING") {
+        throw new ApiError("INVALID_KYC_STATUS", "Only pending submissions may be reviewed");
+      }
+      const updated = await User.findOneAndUpdate({ _id: investor._id, "kyc.status": "PENDING" },
+        { $set: { "kyc.status": data.status, "kyc.reason": data.status === "REJECTED" ? data.reason.trim() : null,
+          "kyc.reviewedBy": admin._id, "kyc.reviewedAt": new Date() } },
+        { session, new: true, runValidators: true });
+      if (!updated) throw new ApiError("INVALID_KYC_STATUS", "Submission changed concurrently");
+      await notifications.record({
+        userId: updated._id, type: data.status === "APPROVED" ? "KYC_APPROVED" : "KYC_REJECTED",
+        title: `KYC ${data.status.toLowerCase()}`,
+        body: data.status === "APPROVED" ? "You may now invest in live properties." : updated.kyc.reason,
+        link: "/investor/kyc"
+      }, session);
+      return userDTO(updated);
+    });
   }
+
+  return { submit, review };
 }
-
-export const kycService = new KycService();

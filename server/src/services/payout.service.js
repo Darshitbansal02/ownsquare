@@ -1,245 +1,120 @@
-import mongoose from 'mongoose';
-import { Property, Investment, Payout, User, Transaction, Settings } from '../models/index.js';
-import { ApiError } from '../utils/ApiError.js';
-import { PROPERTY_STATUS, TRANSACTION_TYPES, TRANSACTION_DIRECTIONS, INVESTMENT_STATUS } from '../../shared/constants.js';
-import { ERROR_CODES } from '../../shared/errorCodes.js';
+import { ApiError } from "../utils/ApiError.js";
+import { requireActor, requireSettings } from "../utils/actors.js";
+import { allocate, basisPoints, integer, multiply, percentageFloor, sum } from "../utils/money.js";
+import { inTransaction } from "../utils/transaction.js";
+import { payoutDTO, propertyDTO } from "../utils/dto.js";
 
-export class PayoutService {
-  /**
-   * GET /properties/:id/payout-preview
-   * Pure, read-only calculation of platform fee, net distributable proceeds, investor allocations and remainder.
-   */
-  async previewPayout(propertyId, salePrice) {
-    if (!mongoose.Types.ObjectId.isValid(propertyId)) {
-      throw ApiError.badRequest('Invalid property ID', ERROR_CODES.VALIDATION_ERROR);
-    }
-
-    if (!salePrice || salePrice <= 0 || !Number.isInteger(salePrice)) {
-      throw ApiError.badRequest('Sale price must be a positive integer in paise', ERROR_CODES.VALIDATION_ERROR);
-    }
-
-    const property = await Property.findById(propertyId).lean();
-    if (!property) {
-      throw ApiError.notFound('Property not found', ERROR_CODES.NOT_FOUND);
-    }
-
-    if (property.status === PROPERTY_STATUS.SOLD) {
-      throw ApiError.conflict('Property has already been sold', ERROR_CODES.ALREADY_SOLD);
-    }
-
-    if (property.status !== PROPERTY_STATUS.HOLDING) {
-      throw ApiError.conflict('Payout preview is only permitted for properties in HOLDING status', ERROR_CODES.INVALID_PROPERTY_STATUS);
-    }
-
-    const settings = (await Settings.findOne({ singletonKey: 'platform' }).lean()) || { platformFeePct: 2 };
-    const platformFeePct = settings.platformFeePct;
-
-    // platformFee = floor(salePrice * feeBasisPoints / 10000)
-    const feeBasisPoints = Math.round(platformFeePct * 100);
-    const platformFee = Math.floor((salePrice * feeBasisPoints) / 10000);
-    const distributable = salePrice - platformFee;
-
-    // Aggregate active investments by investor
-    const activeInvestments = await Investment.find({
-      propertyId: property._id,
-      status: INVESTMENT_STATUS.ACTIVE
-    }).lean();
-
-    const investorMap = new Map();
-    let totalActiveUnits = 0;
-
-    for (const inv of activeInvestments) {
-      const idStr = inv.investorId.toString();
-      const current = investorMap.get(idStr) || { investorId: inv.investorId, units: 0 };
-      current.units += inv.units;
-      investorMap.set(idStr, current);
-      totalActiveUnits += inv.units;
-    }
-
-    if (totalActiveUnits !== property.totalUnits) {
-      throw ApiError.conflict('Total active units do not match property total units', ERROR_CODES.CONFLICT);
-    }
-
-    const items = [];
-    let allocatedSum = 0;
-
-    // Floor each investor share: floor(distributable * investorUnits / totalUnits)
-    for (const entry of investorMap.values()) {
-      const share = Math.floor((distributable * entry.units) / property.totalUnits);
-      items.push({
-        investorId: entry.investorId,
-        units: entry.units,
-        amount: share
-      });
-      allocatedSum += share;
-    }
-
-    const remainder = distributable - allocatedSum;
-    let remainderInvestorId = null;
-
-    if (remainder > 0 && items.length > 0) {
-      // Allocate remainder to the largest aggregate holder (tiebreak ascending investorId)
-      items.sort((a, b) => {
-        if (b.units !== a.units) return b.units - a.units;
-        return a.investorId.toString().localeCompare(b.investorId.toString());
-      });
-
-      items[0].amount += remainder;
-      remainderInvestorId = items[0].investorId;
-    }
-
-    return {
-      propertyId: property._id,
-      salePrice,
-      platformFeePct,
-      platformFee,
-      distributable,
-      items,
-      totalPayout: distributable,
-      remainder,
-      remainderInvestorId
-    };
+export function calculatePayout({ propertyId, salePrice, platformFeePct, totalUnits, holdings }) {
+  integer(salePrice, "salePrice", 1);
+  const platformFee = percentageFloor(salePrice, platformFeePct);
+  const distributable = salePrice - platformFee;
+  if (sum(holdings.map((row) => row.units), "units") !== totalUnits || holdings.length === 0) {
+    throw new ApiError("CONFLICT", "Payout holdings do not reconcile");
   }
-
-  /**
-   * POST /properties/:id/sell
-   * Executes property sale, assigns payouts atomically, and transitions status to SOLD.
-   */
-  async executePayout(propertyId, salePrice, expectedPlatformFeePct, adminId) {
-    const preview = await this.previewPayout(propertyId, salePrice);
-
-    if (preview.platformFeePct !== expectedPlatformFeePct) {
-      throw ApiError.conflict('Platform fee has changed since preview. Please refresh preview and reconfirm.', ERROR_CODES.PREVIEW_STALE);
-    }
-
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-      const property = await Property.findById(propertyId).session(session);
-      if (property.status === PROPERTY_STATUS.SOLD) {
-        throw ApiError.conflict('Property has already been sold', ERROR_CODES.ALREADY_SOLD);
-      }
-
-      if (property.status !== PROPERTY_STATUS.HOLDING) {
-        throw ApiError.conflict('Only properties in HOLDING status can be sold', ERROR_CODES.INVALID_PROPERTY_STATUS);
-      }
-
-      // 1. Create Payout document
-      const payout = await Payout.create(
-        [
-          {
-            propertyId: property._id,
-            salePrice,
-            platformFeePct: preview.platformFeePct,
-            platformFee: preview.platformFee,
-            distributable: preview.distributable,
-            items: preview.items,
-            executedBy: adminId,
-            executedAt: new Date()
-          }
-        ],
-        { session }
-      );
-
-      // 2. Credit each investor wallet via ledger
-      for (const item of preview.items) {
-        if (item.amount > 0) {
-          const investor = await User.findById(item.investorId).session(session);
-          if (investor) {
-            const balanceAfter = investor.walletBalance + item.amount;
-            investor.walletBalance = balanceAfter;
-            investor.walletVersion = (investor.walletVersion || 0) + 1;
-            await investor.save({ session });
-
-            await Transaction.create(
-              [
-                {
-                  userId: investor._id,
-                  type: TRANSACTION_TYPES.PAYOUT,
-                  direction: TRANSACTION_DIRECTIONS.CREDIT,
-                  amount: item.amount,
-                  balanceAfter,
-                  walletVersion: investor.walletVersion,
-                  refType: 'Payout',
-                  refId: payout[0]._id.toString()
-                }
-              ],
-              { session }
-            );
-          }
-        }
-      }
-
-      // 3. Credit platform fee account if fee > 0
-      if (preview.platformFee > 0) {
-        const settings = await Settings.findOne({ singletonKey: 'platform' }).session(session);
-        const feeUserId = settings?.feeAccountUserId || adminId;
-        const feeUser = await User.findById(feeUserId).session(session);
-        if (feeUser) {
-          feeUser.walletBalance = (feeUser.walletBalance || 0) + preview.platformFee;
-          feeUser.walletVersion = (feeUser.walletVersion || 0) + 1;
-          await feeUser.save({ session });
-
-          await Transaction.create(
-            [
-              {
-                userId: feeUser._id,
-                type: TRANSACTION_TYPES.FEE,
-                direction: TRANSACTION_DIRECTIONS.CREDIT,
-                amount: preview.platformFee,
-                balanceAfter: feeUser.walletBalance,
-                walletVersion: feeUser.walletVersion,
-                refType: 'Payout',
-                refId: payout[0]._id.toString()
-              }
-            ],
-            { session }
-          );
-        }
-      }
-
-      // 4. Mark all investments as EXITED with proportional payoutAmount
-      for (const item of preview.items) {
-        const investments = await Investment.find({
-          propertyId: property._id,
-          investorId: item.investorId,
-          status: INVESTMENT_STATUS.ACTIVE
-        }).session(session);
-
-        let remainingItemPayout = item.amount;
-        for (let i = 0; i < investments.length; i++) {
-          const inv = investments[i];
-          const invPayout = i === investments.length - 1
-            ? remainingItemPayout
-            : Math.floor((item.amount * inv.units) / item.units);
-
-          remainingItemPayout -= invPayout;
-          inv.status = INVESTMENT_STATUS.EXITED;
-          inv.payoutAmount = invPayout;
-          await inv.save({ session });
-        }
-      }
-
-      // 5. Update property status to SOLD
-      property.status = PROPERTY_STATUS.SOLD;
-      property.salePrice = salePrice;
-      property.soldAt = new Date();
-      await property.save({ session });
-
-      await session.commitTransaction();
-
-      return {
-        property,
-        payout: payout[0]
-      };
-    } catch (err) {
-      await session.abortTransaction();
-      throw err;
-    } finally {
-      session.endSession();
-    }
+  const allocation = allocate(distributable, holdings.map((row) => ({ id: String(row.investorId), units: row.units })), totalUnits);
+  const items = allocation.items.map((row) => ({ investorId: row.id, units: row.units, amount: row.amount }))
+    .sort((a, b) => a.investorId.localeCompare(b.investorId));
+  const totalPayout = sum(items.map((row) => row.amount));
+  if (totalPayout !== distributable || sum([platformFee, totalPayout]) !== salePrice) {
+    throw new ApiError("CONFLICT", "Payout money does not reconcile");
   }
+  return { propertyId: String(propertyId), salePrice, platformFeePct, platformFee, distributable,
+    items, totalPayout, remainder: allocation.remainder, remainderInvestorId: allocation.remainderId };
 }
 
-export const payoutService = new PayoutService();
+export function createPayoutService({ connection, models, ledger, notifications }) {
+  async function read(propertyId, session) {
+    const property = await models.Property.findById(propertyId).session(session);
+    if (!property) throw new ApiError("NOT_FOUND", "Property not found");
+    if (property.status === "SOLD" || await models.Payout.exists({ propertyId }).session(session)) throw new ApiError("ALREADY_SOLD", "Payout has already executed");
+    if (property.status !== "HOLDING" || property.unitsSold !== property.totalUnits) {
+      throw new ApiError("INVALID_PROPERTY_STATUS", "Fully funded HOLDING property required");
+    }
+    const rows = await models.Investment.find({ propertyId, status: "ACTIVE" }).sort({ investorId: 1, _id: 1 }).session(session);
+    const groups = new Map();
+    for (const row of rows) {
+      if (row.amount !== multiply(row.units, property.unitPrice)) throw new ApiError("CONFLICT", "Investment principal does not reconcile");
+      const investorId = String(row.investorId);
+      const existing = groups.get(investorId) || { investorId, units: 0, rows: [] };
+      existing.units = sum([existing.units, row.units], "units");
+      existing.rows.push(row);
+      groups.set(investorId, existing);
+    }
+    if (sum(rows.map((row) => row.amount)) !== property.valuation) throw new ApiError("CONFLICT", "Raised principal does not reconcile");
+    return { property, groups };
+  }
+  async function preview(adminId, propertyId, salePrice) {
+    integer(salePrice, "salePrice", 1);
+    return inTransaction(connection, async (session) => {
+      await requireActor(models, adminId, ["ADMIN"], session);
+      const { property, groups } = await read(propertyId, session);
+      const settings = await requireSettings(models, session);
+      return calculatePayout({ propertyId, salePrice, platformFeePct: settings.platformFeePct,
+        totalUnits: property.totalUnits, holdings: [...groups.values()] });
+    });
+  }
+  async function execute(adminId, propertyId, { salePrice, expectedPlatformFeePct }) {
+    integer(salePrice, "salePrice", 1);
+    basisPoints(expectedPlatformFeePct, "expectedPlatformFeePct");
+    try {
+      return await inTransaction(connection, async (session) => {
+        await requireActor(models, adminId, ["ADMIN"], session);
+        const { property, groups } = await read(propertyId, session);
+        const settings = await requireSettings(models, session);
+        if (basisPoints(settings.platformFeePct) !== basisPoints(expectedPlatformFeePct)) {
+          throw new ApiError("PREVIEW_STALE", "Platform fee changed; refresh the preview");
+        }
+        // Serialize the fee snapshot against concurrent administrative settings writes.
+        await models.Settings.updateOne({ _id: settings._id }, { $currentDate: { updatedAt: true } }, { session });
+        const calculation = calculatePayout({ propertyId, salePrice, platformFeePct: settings.platformFeePct,
+          totalUnits: property.totalUnits, holdings: [...groups.values()] });
+        integer(property.version + 1, "version");
+        const soldAt = new Date();
+        const sold = await models.Property.findOneAndUpdate({
+          _id: property._id, status: "HOLDING", version: property.version, unitsSold: property.totalUnits
+        }, { $set: { status: "SOLD", salePrice, soldAt }, $inc: { version: 1 } }, { session, new: true, runValidators: true });
+        if (!sold) throw new ApiError("ALREADY_SOLD", "Property changed during sale");
+        const payout = new models.Payout({
+          propertyId, salePrice, platformFeePct: calculation.platformFeePct,
+          platformFee: calculation.platformFee, distributable: calculation.distributable,
+          items: calculation.items, executedBy: adminId, executedAt: soldAt
+        });
+        await payout.save({ session });
+        for (const item of calculation.items) {
+          const investor = await models.User.findById(item.investorId).session(session);
+          if (!investor || investor.role !== "INVESTOR") throw new ApiError("CONFLICT", "Payout investor account is invalid");
+          if (item.amount > 0) await ledger.post({
+            userId: item.investorId, type: "PAYOUT", direction: "CREDIT",
+            amount: item.amount, refType: "Payout", refId: String(payout._id)
+          }, session);
+          const rows = groups.get(item.investorId).rows;
+          const allocation = allocate(item.amount, rows.map((row) => ({ id: String(row._id), units: row.units })), item.units);
+          for (const row of allocation.items) {
+            await models.Investment.updateOne({ _id: row.id, status: "ACTIVE" }, {
+              $set: { status: "EXITED", payoutAmount: row.amount }
+            }, { session, runValidators: true });
+          }
+          await notifications.record({
+            userId: item.investorId, type: "PAYOUT_CREDITED", title: "Sale payout credited",
+            body: "Your sale proceeds have been allocated to your wallet.", link: "/investor/portfolio"
+          }, session);
+        }
+        if (calculation.platformFee > 0) {
+          const account = await models.User.findById(settings.feeAccountUserId).session(session);
+          if (!account || account.role !== "ADMIN") throw new ApiError("CONFLICT", "Platform fee accounting user is invalid");
+          await ledger.post({ userId: account._id, type: "FEE", direction: "CREDIT",
+            amount: calculation.platformFee, refType: "Payout", refId: String(payout._id) }, session);
+        }
+        return { property: await propertyDTO(models, sold, session), payout: payoutDTO(payout) };
+      });
+    } catch (error) {
+      if (error.code === 11000 && error.keyPattern?.propertyId) throw new ApiError("ALREADY_SOLD", "Payout has already executed");
+      if (error instanceof ApiError && error.code === "CONFLICT") {
+        const current = await models.Property.findById(propertyId);
+        if (current?.status === "SOLD") throw new ApiError("ALREADY_SOLD", "Payout has already executed");
+      }
+      throw error;
+    }
+  }
+  return { preview, execute };
+}

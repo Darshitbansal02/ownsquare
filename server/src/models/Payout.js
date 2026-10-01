@@ -1,31 +1,20 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
+import { appendOnly, count, options, rate, ref } from "./helpers.js";
+import { sum } from "../utils/money.js";
 
-const payoutItemSchema = new mongoose.Schema(
-  {
-    investorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    units: { type: Number, required: true, min: 1 },
-    amount: { type: Number, required: true, min: 0 } // Integer paise
-  },
-  { _id: false }
-);
-
-const payoutSchema = new mongoose.Schema(
-  {
-    propertyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: true, unique: true },
-    salePrice: { type: Number, required: true, min: 1 }, // Integer paise
-    platformFeePct: { type: Number, required: true, min: 0, max: 100 },
-    platformFee: { type: Number, required: true, min: 0 },
-    distributable: { type: Number, required: true, min: 0 },
-    items: { type: [payoutItemSchema], default: [] },
-    executedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    executedAt: { type: Date, required: true, default: Date.now }
-  },
-  {
-    timestamps: true
+const item = new mongoose.Schema({ investorId: ref("User", true), units: count(1), amount: count() }, { _id: false, strict: "throw" });
+export const payoutSchema = new mongoose.Schema({
+  propertyId: ref("Property", true), salePrice: count(1), platformFeePct: rate(),
+  platformFee: count(), distributable: count(),
+  items: { type: [item], required: true, validate: (value) => value.length > 0 },
+  executedBy: ref("User", true), executedAt: { type: Date, required: true }
+}, options);
+payoutSchema.pre("validate", function () {
+  if (sum(this.items.map((row) => row.amount)) !== this.distributable ||
+      sum([this.platformFee, this.distributable]) !== this.salePrice) {
+    this.invalidate("items", "Payout amounts must reconcile exactly");
   }
-);
-
+});
 payoutSchema.index({ propertyId: 1 }, { unique: true });
 payoutSchema.index({ executedAt: -1 });
-
-export const Payout = mongoose.models.Payout || mongoose.model('Payout', payoutSchema);
+appendOnly(payoutSchema);

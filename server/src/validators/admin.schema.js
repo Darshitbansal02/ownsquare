@@ -1,98 +1,93 @@
-import { z } from 'zod';
-import { ROLES, KYC_STATUS, WITHDRAWAL_STATUS, PROPERTY_STATUS } from '../../../shared/constants.js';
+import { z } from "zod";
+import { KYC_STATUS, PROPERTY_STATUS, ROLES, WITHDRAWAL_STATUS } from "../../../shared/constants.js";
+import { basisPoints } from "../utils/money.js";
+import { dateFilters, empty, idParams, listQuery, objectId, percentage } from "./common.schema.js";
 
-export const adminUsersQuerySchema = z.object({
-  query: z.object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
-    sort: z.string().optional().default('-createdAt'),
-    search: z.string().min(1).max(100).optional(),
-    role: z.enum([ROLES.ADMIN, ROLES.BROKER, ROLES.INVESTOR]).optional(),
-    isActive: z.enum(['true', 'false']).transform((val) => val === 'true').optional(),
-    brokerApproved: z.enum(['true', 'false']).transform((val) => val === 'true').optional(),
-    kycStatus: z.enum([
-      KYC_STATUS.NOT_SUBMITTED,
-      KYC_STATUS.PENDING,
-      KYC_STATUS.APPROVED,
-      KYC_STATUS.REJECTED
-    ]).optional()
-  }).passthrough()
-});
+const booleanish = z.enum(["true", "false"]).transform((value) => value === "true");
 
-export const updateUserSchema = z.object({
+export const adminStatsQuery = { query: listQuery(["createdAt"], dateFilters) };
+
+export const adminUsersQuery = {
+  query: listQuery(["createdAt", "name"], {
+    search: z.string().trim().min(1).max(100).optional(),
+    role: z.enum(Object.values(ROLES)).optional(),
+    isActive: booleanish.optional(),
+    brokerApproved: booleanish.optional(),
+    kycStatus: z.enum(Object.values(KYC_STATUS)).optional()
+  })
+};
+
+export const adminUserUpdate = {
+  params: idParams,
   body: z.object({
     isActive: z.boolean().optional(),
-    role: z.enum([ROLES.ADMIN, ROLES.BROKER, ROLES.INVESTOR]).optional(),
+    role: z.enum(Object.values(ROLES)).optional(),
     brokerApproved: z.boolean().optional()
-  }).refine((data) => Object.keys(data).length > 0, {
-    message: 'At least one field (isActive, role, brokerApproved) must be provided'
-  })
-});
+  }).strict().refine((data) => Object.keys(data).length > 0, { message: "At least one field is required" })
+};
 
-export const updateSettingsSchema = z.object({
+export const adminSettingsUpdate = {
   body: z.object({
-    platformFeePct: z.number().min(0).max(100).refine((val) => Number(val.toFixed(2)) === val, {
-      message: 'platformFeePct can have at most 2 decimal places'
-    }).optional(),
-    brokerCommissionPct: z.number().min(0).max(100).refine((val) => Number(val.toFixed(2)) === val, {
-      message: 'brokerCommissionPct can have at most 2 decimal places'
-    }).optional(),
-    maxOwnershipPct: z.number().gt(0).max(100).refine((val) => Number(val.toFixed(2)) === val, {
-      message: 'maxOwnershipPct must be > 0 and <= 100 with at most 2 decimal places'
-    }).optional()
-  }).refine((data) => Object.keys(data).length > 0, {
-    message: 'At least one settings field must be provided'
+    platformFeePct: percentage.optional(),
+    brokerCommissionPct: percentage.optional(),
+    // maxOwnershipPct must be strictly positive, so it needs its own range plus precision check.
+    maxOwnershipPct: z.number().gt(0).max(100).refine((value) => {
+      try { basisPoints(value, "maxOwnershipPct"); return true; } catch { return false; }
+    }, "At most two decimal places are allowed").optional()
+  }).strict().refine((data) => Object.keys(data).length > 0, { message: "At least one field is required" })
+};
+
+export const adminWithdrawalsQuery = {
+  query: listQuery(["createdAt", "amount"], {
+    status: z.enum(Object.values(WITHDRAWAL_STATUS)).optional(),
+    userId: objectId.optional(), ...dateFilters
   })
-});
+};
 
-export const adminWithdrawalsQuerySchema = z.object({
-  query: z.object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
-    sort: z.string().optional().default('-createdAt'),
-    status: z.enum([
-      WITHDRAWAL_STATUS.PENDING,
-      WITHDRAWAL_STATUS.APPROVED,
-      WITHDRAWAL_STATUS.REJECTED
-    ]).optional(),
-    userId: z.string().optional(),
-    from: z.string().datetime({ offset: true }).optional(),
-    to: z.string().datetime({ offset: true }).optional()
-  }).passthrough()
-});
-
-export const processWithdrawalSchema = z.object({
+export const adminWithdrawalReview = {
+  params: idParams,
   body: z.object({
     status: z.enum([WITHDRAWAL_STATUS.APPROVED, WITHDRAWAL_STATUS.REJECTED]),
-    reason: z.string().min(1, 'Reason is required when rejecting a withdrawal').max(1000).optional()
-  }).refine((data) => {
-    if (data.status === WITHDRAWAL_STATUS.REJECTED && (!data.reason || data.reason.trim() === '')) {
-      return false;
-    }
-    return true;
-  }, {
-    message: 'Reason is required for rejection',
-    path: ['reason']
-  })
-});
+    reason: z.string().trim().min(1).max(2000).optional()
+  }).strict().refine((data) => data.status !== WITHDRAWAL_STATUS.REJECTED || Boolean(data.reason),
+    { message: "A reason is required when rejecting", path: ["reason"] })
+};
 
-export const adminPropertiesQuerySchema = z.object({
-  query: z.object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
-    sort: z.string().optional().default('-createdAt'),
-    search: z.string().min(1).max(100).optional(),
-    status: z.enum([
-      PROPERTY_STATUS.DRAFT,
-      PROPERTY_STATUS.PENDING_APPROVAL,
-      PROPERTY_STATUS.LIVE,
-      PROPERTY_STATUS.FUNDED,
-      PROPERTY_STATUS.HOLDING,
-      PROPERTY_STATUS.SOLD,
-      PROPERTY_STATUS.REJECTED,
-      PROPERTY_STATUS.CANCELLED
-    ]).optional(),
-    brokerId: z.string().optional(),
-    city: z.string().optional()
-  }).passthrough()
-});
+export const adminPropertiesQuery = {
+  query: listQuery(["createdAt", "title", "unitsSold"], {
+    search: z.string().trim().min(1).max(100).optional(),
+    status: z.enum(Object.values(PROPERTY_STATUS)).optional(),
+    brokerId: objectId.optional(),
+    city: z.string().trim().min(1).max(100).optional()
+  })
+};
+
+export const adminPropertyApprove = { params: idParams, query: empty, body: empty };
+
+export const adminPropertyReject = {
+  params: idParams, query: empty,
+  body: z.object({ reason: z.string().trim().min(1).max(2000) }).strict()
+};
+
+export const adminPropertyStatus = {
+  params: idParams, query: empty,
+  body: z.object({ status: z.enum([PROPERTY_STATUS.HOLDING, PROPERTY_STATUS.CANCELLED]) }).strict()
+};
+
+export const adminPayoutPreview = {
+  params: idParams,
+  query: z.object({ salePrice: z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).strict()
+};
+
+export const adminPropertySell = {
+  params: idParams, query: empty,
+  body: z.object({
+    salePrice: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    expectedPlatformFeePct: percentage
+  }).strict()
+};
+
+export const adminPropertyInvestors = {
+  params: idParams,
+  query: listQuery(["units", "createdAt"])
+};

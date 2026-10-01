@@ -1,29 +1,18 @@
-import mongoose from 'mongoose';
-import { TRANSACTION_TYPES, TRANSACTION_DIRECTIONS } from '../../shared/constants.js';
+import mongoose from "mongoose";
+import { TRANSACTION_DIRECTIONS, TRANSACTION_TYPES } from "../../../shared/constants.js";
+import { appendOnly, count, enumField, ref, text } from "./helpers.js";
 
-const transactionSchema = new mongoose.Schema(
-  {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    type: { type: String, enum: Object.values(TRANSACTION_TYPES), required: true },
-    direction: { type: String, enum: Object.values(TRANSACTION_DIRECTIONS), required: true },
-    amount: { type: Number, required: true, min: 1 }, // Integer paise
-    balanceAfter: { type: Number, required: true, min: 0 }, // Integer paise
-    walletVersion: { type: Number, required: true },
-    refType: {
-      type: String,
-      enum: ['TopupOrder', 'Investment', 'Property', 'Payout', 'Withdrawal'],
-      required: true
-    },
-    refId: { type: String, required: true },
-    gatewayOrderId: { type: String, default: null },
-    gatewayPaymentId: { type: String, default: null }
-  },
-  {
-    timestamps: { createdAt: true, updatedAt: false } // Ledger is append-only
-  }
-);
-
+export const transactionSchema = new mongoose.Schema({
+  userId: ref("User", true), type: enumField(TRANSACTION_TYPES), direction: enumField(TRANSACTION_DIRECTIONS),
+  amount: count(1), balanceAfter: count(), walletVersion: count(1),
+  refType: { type: String, required: true, enum: ["TopupOrder", "Investment", "Property", "Payout", "Withdrawal"] },
+  refId: text(1, 500, true),
+  gatewayOrderId: { type: String }, gatewayPaymentId: { type: String }
+}, { timestamps: { createdAt: true, updatedAt: false }, strict: "throw" });
 transactionSchema.index({ userId: 1, createdAt: -1, _id: -1 });
 transactionSchema.index({ userId: 1, walletVersion: 1 }, { unique: true });
-
-export const Transaction = mongoose.models.Transaction || mongoose.model('Transaction', transactionSchema);
+for (const key of ["gatewayPaymentId", "gatewayOrderId"]) {
+  transactionSchema.index({ [key]: 1 }, { unique: true, partialFilterExpression: { [key]: { $type: "string" } } });
+}
+transactionSchema.index({ userId: 1, type: 1, refType: 1, refId: 1 }, { unique: true });
+appendOnly(transactionSchema);

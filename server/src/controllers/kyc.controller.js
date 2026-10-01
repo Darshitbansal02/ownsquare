@@ -1,31 +1,10 @@
-import { kycService } from '../services/kyc.service.js';
+import { actorId, send } from "../utils/http.js";
 
-export class KycController {
-  async submitKyc(req, res, next) {
-    try {
-      const result = await kycService.submitKyc(req.user._id, req.body);
-      return res.status(201).json({
-        success: true,
-        data: result,
-        message: 'KYC submitted successfully'
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  async reviewKyc(req, res, next) {
-    try {
-      const result = await kycService.reviewKyc(req.params.userId, req.body, req.user._id);
-      return res.status(200).json({
-        success: true,
-        data: result,
-        message: 'KYC review completed'
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
+export function createKycController({ kyc }) {
+  return {
+    submit: async (req, res) =>
+      send(res, await kyc.submit(actorId(req), req.validated.body), "KYC submitted successfully", 201),
+    review: async (req, res) =>
+      send(res, await kyc.review(actorId(req), req.validated.params.userId, req.validated.body), "KYC review completed")
+  };
 }
-
-export const kycController = new KycController();

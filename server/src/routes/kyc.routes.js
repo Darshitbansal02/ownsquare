@@ -1,29 +1,14 @@
-import express from 'express';
-import { kycController } from '../controllers/kyc.controller.js';
-import { authenticate } from '../middlewares/auth.js';
-import { requireRole } from '../middlewares/role.js';
-import { validate } from '../middlewares/validate.js';
-import { submitKycSchema, reviewKycSchema } from '../validators/kyc.schema.js';
-import { ROLES } from '../../shared/constants.js';
+import { protectedRouter } from "../utils/http.js";
+import { validate } from "../middlewares/validate.js";
+import { createRateLimit } from "../middlewares/rateLimit.js";
+import { createKycController } from "../controllers/kyc.controller.js";
+import { kycReview, kycSubmit } from "../validators/kyc.schema.js";
 
-const router = express.Router();
-
-// POST /api/v1/kyc - Investor submits dummy KYC
-router.post(
-  '/',
-  authenticate,
-  requireRole(ROLES.INVESTOR),
-  validate(submitKycSchema),
-  kycController.submitKyc
-);
-
-// PATCH /api/v1/admin/kyc/:userId - Admin approves or rejects KYC
-router.patch(
-  '/:userId',
-  authenticate,
-  requireRole(ROLES.ADMIN),
-  validate(reviewKycSchema),
-  kycController.reviewKyc
-);
-
-export default router;
+export function createKycRouter({ services, authenticate, requireRole }) {
+  const controller = createKycController(services);
+  const investor = protectedRouter(authenticate, requireRole, ["INVESTOR"]);
+  investor.post("/", createRateLimit(10), validate(kycSubmit), controller.submit);
+  const admin = protectedRouter(authenticate, requireRole, ["ADMIN"]);
+  admin.patch("/:userId", validate(kycReview), controller.review);
+  return { investor, admin };
+}

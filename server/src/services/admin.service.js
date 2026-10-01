@@ -1,589 +1,198 @@
-import mongoose from 'mongoose';
-import { User, Property, Transaction, Withdrawal, Settings, Investment } from '../models/index.js';
-import { ApiError } from '../utils/ApiError.js';
-import { ROLES, PROPERTY_STATUS, TRANSACTION_TYPES, TRANSACTION_DIRECTIONS, KYC_STATUS, WITHDRAWAL_STATUS } from '../../shared/constants.js';
-import { ERROR_CODES } from '../../shared/errorCodes.js';
+import { ApiError } from "../utils/ApiError.js";
+import { requireActor, requireSettings } from "../utils/actors.js";
+import { propertyDTO, userDTO, withdrawalDTO } from "../utils/dto.js";
+import { basisPoints } from "../utils/money.js";
+import { dateRange, pageOf, sortOptions } from "../utils/pagination.js";
+import { inTransaction } from "../utils/transaction.js";
 
-export class AdminService {
-  /**
-   * GET /admin/stats
-   * Aggregates platform AUM, user distribution, monthly funds raised, platform fees, and approval queues.
-   */
-  async getPlatformStats(from, to) {
+const escapeLiteral = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export function createAdminService({ connection, models, withdrawals }) {
+  const { User, Property, Transaction, Settings, Investment } = models;
+
+  // GET /admin/stats. AUM counts funded/holding valuation; funds raised nets refunds in range.
+  async function stats(from, to) {
     const now = new Date();
-    const startOfMonth = from ? new Date(from) : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const endOfMonth = to ? new Date(to) : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
-
-    // 1. AUM: sum valuation of FUNDED and HOLDING properties
-    const aumAggregate = await Property.aggregate([
-      { $match: { status: { $in: [PROPERTY_STATUS.FUNDED, PROPERTY_STATUS.HOLDING] } } },
-      { $group: { _id: null, totalAum: { $sum: '$valuation' } } }
+    const start = from ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const end = to ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    const aum = (await Property.aggregate([
+      { $match: { status: { $in: ["FUNDED", "HOLDING"] } } },
+      { $group: { _id: null, total: { $sum: "$valuation" } } }
+    ]))[0]?.total ?? 0;
+    const byRole = Object.fromEntries((await User.aggregate([
+      { $group: { _id: "$role", count: { $sum: 1 } } }
+    ])).map((row) => [row._id, row.count]));
+    const raised = await Transaction.aggregate([
+      { $match: { createdAt: { $gte: start, $lt: end }, type: { $in: ["INVESTMENT", "REFUND"] } } },
+      { $group: { _id: "$type", total: { $sum: "$amount" } } }
     ]);
-    const aum = aumAggregate[0]?.totalAum || 0;
-
-    // 2. Users by role
-    const usersByRoleAgg = await User.aggregate([
-      { $group: { _id: '$role', count: { $sum: 1 } } }
-    ]);
-    const usersByRole = {
-      [ROLES.ADMIN]: 0,
-      [ROLES.BROKER]: 0,
-      [ROLES.INVESTOR]: 0
-    };
-    usersByRoleAgg.forEach((item) => {
-      if (usersByRole[item._id] !== undefined) {
-        usersByRole[item._id] = item.count;
-      }
-    });
-
-    // 3. Live properties count
-    const liveProperties = await Property.countDocuments({ status: PROPERTY_STATUS.LIVE });
-
-    // 4. Funds raised this month: sum(INVESTMENT debits) - sum(REFUND credits) in current month
-    const raisedAgg = await Transaction.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startOfMonth, $lte: endOfMonth },
-          type: { $in: [TRANSACTION_TYPES.INVESTMENT, TRANSACTION_TYPES.REFUND] }
-        }
-      },
-      {
-        $group: {
-          _id: '$type',
-          total: { $sum: '$amount' }
-        }
-      }
-    ]);
-    let investedThisMonth = 0;
-    let refundedThisMonth = 0;
-    raisedAgg.forEach((item) => {
-      if (item._id === TRANSACTION_TYPES.INVESTMENT) investedThisMonth = item.total;
-      if (item._id === TRANSACTION_TYPES.REFUND) refundedThisMonth = item.total;
-    });
-    const fundsRaisedThisMonth = Math.max(0, investedThisMonth - refundedThisMonth);
-
-    // 5. Platform fees earned (from FEE ledger entries)
-    const feesAgg = await Transaction.aggregate([
-      { $match: { type: TRANSACTION_TYPES.FEE } },
-      { $group: { _id: null, totalFees: { $sum: '$amount' } } }
-    ]);
-    const platformFeesEarned = feesAgg[0]?.totalFees || 0;
-
-    // 6. Properties by status
-    const propStatusAgg = await Property.aggregate([
-      { $group: { _id: '$status', count: { $sum: 1 } } }
-    ]);
-    const propertiesByStatus = Object.values(PROPERTY_STATUS).map((status) => {
-      const match = propStatusAgg.find((item) => item._id === status);
-      return { status, count: match ? match.count : 0 };
-    });
-
-    // 7. Approval queues counters
-    const [pendingProperties, pendingBrokers, pendingKyc, pendingWithdrawals] = await Promise.all([
-      Property.countDocuments({ status: PROPERTY_STATUS.PENDING_APPROVAL }),
-      User.countDocuments({ role: ROLES.BROKER, brokerApproved: false }),
-      User.countDocuments({ 'kyc.status': KYC_STATUS.PENDING }),
-      Withdrawal.countDocuments({ status: WITHDRAWAL_STATUS.PENDING })
-    ]);
-
-    // 8. Funds raised series (last 30 days daily aggregate)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
-    const seriesAgg = await Transaction.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: thirtyDaysAgo },
-          type: TRANSACTION_TYPES.INVESTMENT
-        }
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          amount: { $sum: '$amount' }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
-    const fundsRaisedSeries = seriesAgg.map((item) => ({
-      date: item._id,
-      amount: item.amount
-    }));
-
+    const invested = raised.find((row) => row._id === "INVESTMENT")?.total ?? 0;
+    const refunded = raised.find((row) => row._id === "REFUND")?.total ?? 0;
+    const [liveProperties, fees, byStatus, pendingProperties, pendingBrokers, pendingKyc, pendingWithdrawals, series] =
+      await Promise.all([
+        Property.countDocuments({ status: "LIVE" }),
+        Transaction.aggregate([{ $match: { type: "FEE" } }, { $group: { _id: null, total: { $sum: "$amount" } } }]),
+        Property.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+        Property.countDocuments({ status: "PENDING_APPROVAL" }),
+        User.countDocuments({ role: "BROKER", brokerApproved: false }),
+        User.countDocuments({ "kyc.status": "PENDING" }),
+        models.Withdrawal.countDocuments({ status: "PENDING" }),
+        Transaction.aggregate([
+          { $match: { createdAt: { $gte: new Date(Date.now() - 30 * 86400000) }, type: "INVESTMENT" } },
+          { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, amount: { $sum: "$amount" } } },
+          { $sort: { _id: 1 } }
+        ])
+      ]);
     return {
       aum,
-      usersByRole,
+      usersByRole: { ADMIN: byRole.ADMIN ?? 0, BROKER: byRole.BROKER ?? 0, INVESTOR: byRole.INVESTOR ?? 0 },
       liveProperties,
-      fundsRaisedThisMonth,
-      platformFeesEarned,
-      fundsRaisedSeries,
-      propertiesByStatus,
-      approvalQueue: {
-        properties: pendingProperties,
-        brokers: pendingBrokers,
-        kyc: pendingKyc,
-        withdrawals: pendingWithdrawals
-      }
+      fundsRaisedThisMonth: Math.max(0, invested - refunded),
+      platformFeesEarned: fees[0]?.total ?? 0,
+      fundsRaisedSeries: series.map((row) => ({ date: row._id, amount: row.amount })),
+      propertiesByStatus: ["DRAFT", "PENDING_APPROVAL", "LIVE", "FUNDED", "HOLDING", "SOLD", "REJECTED", "CANCELLED"]
+        .map((status) => ({ status, count: byStatus.find((row) => row._id === status)?.count ?? 0 })),
+      approvalQueue: { properties: pendingProperties, brokers: pendingBrokers, kyc: pendingKyc, withdrawals: pendingWithdrawals }
     };
   }
 
-  /**
-   * GET /admin/users
-   * Paginated user list with role, active, broker approval, and kyc status filters.
-   */
-  async getUsers(query) {
-    const page = Math.max(1, parseInt(query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
-    const skip = (page - 1) * limit;
-
+  // GET /admin/users. Never selects password or reset-token hashes; kyc docs are admin-only.
+  function users(query) {
     const filter = {};
     if (query.role) filter.role = query.role;
     if (query.isActive !== undefined) filter.isActive = query.isActive;
     if (query.brokerApproved !== undefined) filter.brokerApproved = query.brokerApproved;
-    if (query.kycStatus) filter['kyc.status'] = query.kycStatus;
-
+    if (query.kycStatus) filter["kyc.status"] = query.kycStatus;
     if (query.search) {
-      const sanitized = query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      filter.$or = [
-        { name: { $regex: sanitized, $options: 'i' } },
-        { email: { $regex: sanitized, $options: 'i' } }
-      ];
+      const escaped = escapeLiteral(query.search.trim());
+      filter.$or = [{ name: { $regex: escaped, $options: "i" } }, { email: { $regex: escaped, $options: "i" } }];
     }
-
-    const sortOption = {};
-    if (query.sort) {
-      const desc = query.sort.startsWith('-');
-      const field = desc ? query.sort.substring(1) : query.sort;
-      sortOption[field] = desc ? -1 : 1;
-    } else {
-      sortOption.createdAt = -1;
-    }
-
-    const [total, users] = await Promise.all([
-      User.countDocuments(filter),
-      User.find(filter)
-        .select('_id name email phone role isActive brokerApproved kyc createdAt updatedAt')
-        .sort(sortOption)
-        .skip(skip)
-        .limit(limit)
-        .lean()
-    ]);
-
-    const totalPages = Math.ceil(total / limit);
-
-    return {
-      items: users,
-      page,
-      limit,
-      total,
-      totalPages
-    };
+    return pageOf(User, filter, query, async (row) => ({
+      ...userDTO(row),
+      kycDocs: row.kyc.docs, kycSelfie: row.kyc.selfie,
+      kycReviewedBy: row.kyc.reviewedBy ? String(row.kyc.reviewedBy) : null,
+      kycReviewedAt: row.kyc.reviewedAt ? row.kyc.reviewedAt.toISOString() : null
+    }));
   }
 
-  /**
-   * PATCH /admin/users/:id
-   * Admin updates user status, role, or broker approval.
-   */
-  async updateUser(userId, data) {
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      throw ApiError.badRequest('Invalid user ID', ERROR_CODES.VALIDATION_ERROR);
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      throw ApiError.notFound('User not found', ERROR_CODES.NOT_FOUND);
-    }
-
-    // Invariant: Guard against deactivating or demoting the last active admin
-    if (user.role === ROLES.ADMIN) {
-      const isDemoting = data.role && data.role !== ROLES.ADMIN;
-      const isDeactivating = data.isActive === false;
-      if (isDemoting || isDeactivating) {
-        const activeAdminsCount = await User.countDocuments({ role: ROLES.ADMIN, isActive: true });
-        if (activeAdminsCount <= 1) {
-          throw ApiError.conflict('Cannot deactivate or demote the last active admin', ERROR_CODES.CONFLICT);
+  // PATCH /admin/users/:id. Guards the last active admin and invalidates sessions on change.
+  async function updateUser(actorId, userId, data) {
+    return inTransaction(connection, async (session) => {
+      await requireActor(models, actorId, ["ADMIN"], session);
+      const user = await User.findById(userId).session(session);
+      if (!user) throw new ApiError("NOT_FOUND", "User not found");
+      if (data.brokerApproved === true && (data.role ?? user.role) !== "BROKER") {
+        throw new ApiError("VALIDATION_ERROR", "Only brokers can be approved as brokers");
+      }
+      const demoting = data.role !== undefined && data.role !== "ADMIN";
+      if (user.role === "ADMIN" && (demoting || data.isActive === false)) {
+        const others = await User.countDocuments({ role: "ADMIN", isActive: true, _id: { $ne: user._id } });
+        if (others === 0) throw new ApiError("CONFLICT", "The last active admin cannot be deactivated or demoted");
+      }
+      if (data.role !== undefined && data.role !== user.role) {
+        if (await Property.exists({ brokerId: user._id, status: { $in: ["DRAFT", "PENDING_APPROVAL", "REJECTED"] } })) {
+          throw new ApiError("CONFLICT", "User still owns broker listings requiring the broker role");
+        }
+        if (data.role !== "INVESTOR" && await Investment.exists({ investorId: user._id, status: "ACTIVE" })) {
+          throw new ApiError("CONFLICT", "User still holds active investments");
         }
       }
-    }
-
-    // If approving broker, target user must be a BROKER
-    if (data.brokerApproved !== undefined && data.brokerApproved === true) {
-      const effectiveRole = data.role || user.role;
-      if (effectiveRole !== ROLES.BROKER) {
-        throw ApiError.badRequest('Only brokers can be marked as brokerApproved', ERROR_CODES.VALIDATION_ERROR);
-      }
-    }
-
-    // Applying updates
-    if (data.isActive !== undefined) {
-      user.isActive = data.isActive;
-      // Invalidate existing sessions if deactivated
-      if (data.isActive === false) {
-        user.sessionVersion = (user.sessionVersion || 0) + 1;
-      }
-    }
-
-    if (data.role !== undefined) {
-      user.role = data.role;
-      user.sessionVersion = (user.sessionVersion || 0) + 1;
-    }
-
-    if (data.brokerApproved !== undefined) {
-      user.brokerApproved = data.brokerApproved;
-    }
-
-    await user.save();
-
-    return {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      isActive: user.isActive,
-      brokerApproved: user.brokerApproved,
-      kyc: user.kyc,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    };
-  }
-
-  /**
-   * GET /admin/settings
-   * Fetches singleton platform parameters.
-   */
-  async getSettings() {
-    let settings = await Settings.findOne({ singletonKey: 'platform' }).lean();
-    if (!settings) {
-      settings = await Settings.create({
-        singletonKey: 'platform',
-        platformFeePct: 2,
-        brokerCommissionPct: 1,
-        maxOwnershipPct: 49
-      });
-    }
-
-    return {
-      platformFeePct: settings.platformFeePct,
-      brokerCommissionPct: settings.brokerCommissionPct,
-      maxOwnershipPct: settings.maxOwnershipPct
-    };
-  }
-
-  /**
-   * PATCH /admin/settings
-   * Updates platform singleton fee and cap parameters.
-   */
-  async updateSettings(data) {
-    let settings = await Settings.findOne({ singletonKey: 'platform' });
-    if (!settings) {
-      settings = new Settings({ singletonKey: 'platform' });
-    }
-
-    if (data.platformFeePct !== undefined) {
-      settings.platformFeePct = Number(data.platformFeePct.toFixed(2));
-    }
-    if (data.brokerCommissionPct !== undefined) {
-      settings.brokerCommissionPct = Number(data.brokerCommissionPct.toFixed(2));
-    }
-    if (data.maxOwnershipPct !== undefined) {
-      settings.maxOwnershipPct = Number(data.maxOwnershipPct.toFixed(2));
-    }
-
-    await settings.save();
-
-    return {
-      platformFeePct: settings.platformFeePct,
-      brokerCommissionPct: settings.brokerCommissionPct,
-      maxOwnershipPct: settings.maxOwnershipPct
-    };
-  }
-
-  /**
-   * GET /admin/withdrawals
-   * Paginated withdrawal requests for admin queue.
-   */
-  async getWithdrawals(query) {
-    const page = Math.max(1, parseInt(query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
-    const skip = (page - 1) * limit;
-
-    const filter = {};
-    if (query.status) filter.status = query.status;
-    if (query.userId) filter.userId = query.userId;
-    if (query.from || query.to) {
-      filter.createdAt = {};
-      if (query.from) filter.createdAt.$gte = new Date(query.from);
-      if (query.to) filter.createdAt.$lte = new Date(query.to);
-    }
-
-    const sortOption = {};
-    if (query.sort) {
-      const desc = query.sort.startsWith('-');
-      const field = desc ? query.sort.substring(1) : query.sort;
-      sortOption[field] = desc ? -1 : 1;
-    } else {
-      sortOption.createdAt = -1;
-    }
-
-    const [total, withdrawals] = await Promise.all([
-      Withdrawal.countDocuments(filter),
-      Withdrawal.find(filter)
-        .populate('userId', 'name email phone')
-        .sort(sortOption)
-        .skip(skip)
-        .limit(limit)
-        .lean()
-    ]);
-
-    const totalPages = Math.ceil(total / limit);
-
-    return {
-      items: withdrawals,
-      page,
-      limit,
-      total,
-      totalPages
-    };
-  }
-
-  /**
-   * PATCH /admin/withdrawals/:id
-   * Admin approves or rejects a pending withdrawal request.
-   */
-  async processWithdrawal(withdrawalId, data, adminId) {
-    if (!mongoose.Types.ObjectId.isValid(withdrawalId)) {
-      throw ApiError.badRequest('Invalid withdrawal ID', ERROR_CODES.VALIDATION_ERROR);
-    }
-
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-      const withdrawal = await Withdrawal.findById(withdrawalId).session(session);
-      if (!withdrawal) {
-        throw ApiError.notFound('Withdrawal not found', ERROR_CODES.NOT_FOUND);
-      }
-
-      if (withdrawal.status !== WITHDRAWAL_STATUS.PENDING) {
-        throw ApiError.conflict('Withdrawal has already been processed', ERROR_CODES.WITHDRAWAL_ALREADY_PROCESSED);
-      }
-
-      const user = await User.findById(withdrawal.userId).session(session);
-      if (!user) {
-        throw ApiError.notFound('Associated investor account not found', ERROR_CODES.NOT_FOUND);
-      }
-
-      if (data.status === WITHDRAWAL_STATUS.APPROVED) {
-        if (user.walletBalance < withdrawal.amount) {
-          throw ApiError.conflict('User wallet balance is insufficient for withdrawal', ERROR_CODES.INSUFFICIENT_BALANCE);
-        }
-
-        withdrawal.status = WITHDRAWAL_STATUS.APPROVED;
-        withdrawal.processedBy = adminId;
-        withdrawal.processedAt = new Date();
-        await withdrawal.save({ session });
-
-        // Update user wallet balance and sequence
-        const newBalance = user.walletBalance - withdrawal.amount;
-        user.walletBalance = newBalance;
-        user.walletVersion = (user.walletVersion || 0) + 1;
-        await user.save({ session });
-
-        // Post ledger DEBIT
-        await Transaction.create(
-          [
-            {
-              userId: user._id,
-              type: TRANSACTION_TYPES.WITHDRAWAL,
-              direction: TRANSACTION_DIRECTIONS.DEBIT,
-              amount: withdrawal.amount,
-              balanceAfter: newBalance,
-              walletVersion: user.walletVersion,
-              refType: 'Withdrawal',
-              refId: withdrawal._id.toString()
-            }
-          ],
-          { session }
-        );
-      } else if (data.status === WITHDRAWAL_STATUS.REJECTED) {
-        withdrawal.status = WITHDRAWAL_STATUS.REJECTED;
-        withdrawal.reason = data.reason;
-        withdrawal.processedBy = adminId;
-        withdrawal.processedAt = new Date();
-        await withdrawal.save({ session });
-        // Released reservation back to available balance
-      }
-
-      await session.commitTransaction();
-
-      // Compute wallet reservation
-      const pendingWithdrawalsSum = await Withdrawal.aggregate([
-        { $match: { userId: user._id, status: WITHDRAWAL_STATUS.PENDING } },
-        { $group: { _id: null, total: { $sum: '$amount' } } }
-      ]);
-      const reserved = pendingWithdrawalsSum[0]?.total || 0;
-
+      const changes = {};
+      if (data.isActive !== undefined) changes.isActive = data.isActive;
+      if (data.role !== undefined) changes.role = data.role;
+      if (data.brokerApproved !== undefined) changes.brokerApproved = data.brokerApproved;
+      // Role or activation changes must not leave previously issued tokens usable.
+      if (data.role !== undefined || data.isActive === false) changes.sessionVersion = user.sessionVersion + 1;
+      const updated = await User.findOneAndUpdate({ _id: user._id }, { $set: changes },
+        { session, new: true, runValidators: true });
       return {
-        withdrawal,
-        wallet: {
-          balance: user.walletBalance,
-          reservedBalance: reserved,
-          availableBalance: Math.max(0, user.walletBalance - reserved)
-        }
+        ...userDTO(updated), kycDocs: updated.kyc.docs, kycSelfie: updated.kyc.selfie,
+        kycReviewedBy: null, kycReviewedAt: null
       };
-    } catch (err) {
-      await session.abortTransaction();
-      throw err;
-    } finally {
-      session.endSession();
-    }
+    });
   }
 
-  /**
-   * GET /admin/properties
-   * Comprehensive property management query for Admin (including drafts and rejected).
-   */
-  async getAdminProperties(query) {
-    const page = Math.max(1, parseInt(query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
-    const skip = (page - 1) * limit;
+  // GET /admin/settings. A missing singleton is a configuration error, not a silent default.
+  async function getSettings() {
+    const settings = await requireSettings(models);
+    return { platformFeePct: settings.platformFeePct, brokerCommissionPct: settings.brokerCommissionPct,
+      maxOwnershipPct: settings.maxOwnershipPct };
+  }
 
+  // PATCH /admin/settings. Rates apply to future events only; posted money never recomputes.
+  async function updateSettings(actorId, data) {
+    return inTransaction(connection, async (session) => {
+      await requireActor(models, actorId, ["ADMIN"], session);
+      const settings = await requireSettings(models, session);
+      const changes = {};
+      for (const field of ["platformFeePct", "brokerCommissionPct", "maxOwnershipPct"]) {
+        if (data[field] !== undefined) {
+          basisPoints(data[field], field);
+          changes[field] = data[field];
+        }
+      }
+      const updated = await Settings.findOneAndUpdate({ _id: settings._id }, { $set: changes },
+        { session, new: true, runValidators: true });
+      return { platformFeePct: updated.platformFeePct, brokerCommissionPct: updated.brokerCommissionPct,
+        maxOwnershipPct: updated.maxOwnershipPct };
+    });
+  }
+
+  // GET /admin/withdrawals. P1 queue; bank details stay private to admin and the owner.
+  function listWithdrawals(query) {
+    const filter = { ...(query.status ? { status: query.status } : {}),
+      ...(query.userId ? { userId: query.userId } : {}), ...dateRange(query) };
+    return pageOf(models.Withdrawal, filter, query, async (row) => withdrawalDTO(row));
+  }
+
+  // PATCH /admin/withdrawals/:id delegates to the single withdrawal owner (no independent balance writes).
+  function processWithdrawal(actorId, withdrawalId, data) {
+    return withdrawals.process(actorId, withdrawalId, data);
+  }
+
+  // GET /admin/properties. Includes drafts and rejected assets, unlike the public marketplace.
+  function allProperties(query) {
     const filter = {};
     if (query.status) filter.status = query.status;
     if (query.brokerId) filter.brokerId = query.brokerId;
-    if (query.city) filter.city = { $regex: query.city.trim(), $options: 'i' };
-
+    if (query.city) filter.city = { $regex: escapeLiteral(query.city.trim()), $options: "i" };
     if (query.search) {
-      const sanitized = query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      filter.$or = [
-        { title: { $regex: sanitized, $options: 'i' } },
-        { address: { $regex: sanitized, $options: 'i' } },
-        { city: { $regex: sanitized, $options: 'i' } }
-      ];
+      const escaped = escapeLiteral(query.search.trim());
+      filter.$or = [{ title: { $regex: escaped, $options: "i" } },
+        { address: { $regex: escaped, $options: "i" } }, { city: { $regex: escaped, $options: "i" } }];
     }
-
-    const sortOption = {};
-    if (query.sort) {
-      const desc = query.sort.startsWith('-');
-      const field = desc ? query.sort.substring(1) : query.sort;
-      sortOption[field] = desc ? -1 : 1;
-    } else {
-      sortOption.createdAt = -1;
-    }
-
-    const [total, properties] = await Promise.all([
-      Property.countDocuments(filter),
-      Property.find(filter)
-        .populate('brokerId', 'name email phone')
-        .populate('createdBy', 'name email')
-        .populate('approvedBy', 'name email')
-        .sort(sortOption)
-        .skip(skip)
-        .limit(limit)
-        .lean()
-    ]);
-
-    const items = properties.map((prop) => {
-      const totalUnits = prop.totalUnits || 0;
-      const unitsSold = prop.unitsSold || 0;
-      const fundingPct = totalUnits > 0 ? Number(((unitsSold / totalUnits) * 100).toFixed(2)) : 0;
-      const remainingUnits = Math.max(0, totalUnits - unitsSold);
-
-      return {
-        ...prop,
-        fundingPct,
-        remainingUnits
-      };
-    });
-
-    return {
-      items,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit)
-    };
+    return pageOf(Property, filter, query, async (row) => propertyDTO(models, row));
   }
 
-  /**
-   * GET /properties/:id/investors
-   * Aggregates active investors and fractional holdings for a given property.
-   */
-  async getPropertyInvestors(propertyId, query, currentUser) {
-    if (!mongoose.Types.ObjectId.isValid(propertyId)) {
-      throw ApiError.badRequest('Invalid property ID', ERROR_CODES.VALIDATION_ERROR);
-    }
-
+  // GET /properties/:id/investors. Aggregated server-side; broker view masks investor names.
+  async function propertyInvestors(actor, propertyId, query) {
     const property = await Property.findById(propertyId).lean();
-    if (!property) {
-      throw ApiError.notFound('Property not found', ERROR_CODES.NOT_FOUND);
+    if (!property || (actor.role === "BROKER" && String(property.brokerId) !== String(actor._id))) {
+      throw new ApiError("NOT_FOUND", "Property not found");
     }
-
-    // If broker is querying, ensure they own the property
-    if (currentUser.role === ROLES.BROKER && String(property.brokerId) !== String(currentUser._id)) {
-      throw ApiError.notFound('Property not found', ERROR_CODES.NOT_FOUND);
-    }
-
-    const page = Math.max(1, parseInt(query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
-    const skip = (page - 1) * limit;
-
-    const aggregatePipeline = [
-      { $match: { propertyId: new mongoose.Types.ObjectId(propertyId) } },
-      {
-        $group: {
-          _id: '$investorId',
-          units: { $sum: '$units' },
-          amount: { $sum: '$amount' }
-        }
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'investor'
-        }
-      },
-      { $unwind: '$investor' },
-      { $sort: { units: -1 } },
-      {
-        $facet: {
-          metadata: [{ $count: 'total' }],
-          data: [{ $skip: skip }, { $limit: limit }]
-        }
-      }
-    ];
-
-    const result = await Investment.aggregate(aggregatePipeline);
-    const total = result[0]?.metadata[0]?.total || 0;
-    const rawItems = result[0]?.data || [];
-
-    const items = rawItems.map((item) => {
-      const ownershipPct = property.totalUnits > 0 ? Number(((item.units / property.totalUnits) * 100).toFixed(2)) : 0;
-      let displayName = item.investor.name;
-      // Mask name for brokers as specified in API_DESIGN.md
-      if (currentUser.role === ROLES.BROKER) {
-        displayName = item.investor.name ? `${item.investor.name.charAt(0)}***` : 'Investor';
-      }
-
-      return {
-        investorId: item._id,
-        displayName,
-        units: item.units,
-        amount: item.amount,
-        ownershipPct
-      };
-    });
-
+    const match = { propertyId: property._id, status: { $ne: "REFUNDED" } };
+    const requested = query.sort === "units" ? "units" : "-units";
+    const [counted, grouped] = await Promise.all([
+      Investment.aggregate([{ $match: match }, { $group: { _id: "$investorId" } }, { $count: "total" }]),
+      Investment.aggregate([{ $match: match },
+        { $group: { _id: "$investorId", units: { $sum: "$units" }, amount: { $sum: "$amount" } } },
+        { $sort: sortOptions(requested) },
+        { $skip: (query.page - 1) * query.limit }, { $limit: query.limit }])
+    ]);
+    const investors = await User.find({ _id: { $in: grouped.map((row) => row._id) } }).select("name").lean();
+    const names = new Map(investors.map((row) => [String(row._id), row.name]));
+    const total = counted[0]?.total ?? 0;
     return {
-      items,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit)
+      items: grouped.map((row) => {
+        const name = names.get(String(row._id)) ?? "Investor";
+        return { investorId: String(row._id), displayName: actor.role === "BROKER" ? `${name.charAt(0)}***` : name,
+          units: row.units, amount: row.amount,
+          ownershipPct: property.totalUnits ? row.units / property.totalUnits * 100 : 0 };
+      }),
+      page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit)
     };
   }
-}
 
-export const adminService = new AdminService();
+  return { stats, users, updateUser, getSettings, updateSettings, listWithdrawals, processWithdrawal,
+    allProperties, propertyInvestors };
+}

@@ -1,33 +1,27 @@
-import express from 'express';
-import { propertyAdminController } from '../controllers/propertyAdmin.controller.js';
-import { authenticate } from '../middlewares/auth.js';
-import { requireRole } from '../middlewares/role.js';
-import { validate } from '../middlewares/validate.js';
+import { protectedRouter } from "../utils/http.js";
+import { validate } from "../middlewares/validate.js";
+import { createRateLimit } from "../middlewares/rateLimit.js";
+import { createPropertyAdminController } from "../controllers/propertyAdmin.controller.js";
 import {
-  rejectPropertySchema,
-  updatePropertyStatusSchema,
-  payoutPreviewQuerySchema,
-  sellPropertySchema,
-  propertyInvestorsQuerySchema
-} from '../validators/propertyAdmin.schema.js';
-import { ROLES } from '../../shared/constants.js';
+  adminPayoutPreview, adminPropertyApprove, adminPropertyInvestors, adminPropertyReject,
+  adminPropertySell, adminPropertyStatus
+} from "../validators/admin.schema.js";
 
-const router = express.Router();
+export function createPropertyAdminRouter({ services, authenticate, requireRole }) {
+  const router = protectedRouter(authenticate, requireRole, ["ADMIN"]);
+  const controller = createPropertyAdminController(services);
+  router.post("/:id/approve", createRateLimit(30), validate(adminPropertyApprove), controller.approve);
+  router.post("/:id/reject", createRateLimit(30), validate(adminPropertyReject), controller.reject);
+  router.post("/:id/status", createRateLimit(30), validate(adminPropertyStatus), controller.updateStatus);
+  router.get("/:id/payout-preview", validate(adminPayoutPreview), controller.preview);
+  router.post("/:id/sell", createRateLimit(10), validate(adminPropertySell), controller.sell);
+  return router;
+}
 
-// Admin-only property lifecycle & sale management
-router.post('/:id/approve', authenticate, requireRole(ROLES.ADMIN), propertyAdminController.approveProperty);
-router.post('/:id/reject', authenticate, requireRole(ROLES.ADMIN), validate(rejectPropertySchema), propertyAdminController.rejectProperty);
-router.post('/:id/status', authenticate, requireRole(ROLES.ADMIN), validate(updatePropertyStatusSchema), propertyAdminController.updateStatus);
-router.get('/:id/payout-preview', authenticate, requireRole(ROLES.ADMIN), validate(payoutPreviewQuerySchema), propertyAdminController.getPayoutPreview);
-router.post('/:id/sell', authenticate, requireRole(ROLES.ADMIN), validate(sellPropertySchema), propertyAdminController.sellProperty);
-
-// Admin & owning Broker investor inspection
-router.get(
-  '/:id/investors',
-  authenticate,
-  requireRole(ROLES.ADMIN, ROLES.BROKER),
-  validate(propertyInvestorsQuerySchema),
-  propertyAdminController.getPropertyInvestors
-);
-
-export default router;
+// Admin and the owning broker may inspect an asset's investors; foreign brokers must not.
+export function createPropertyInvestorsRouter({ services, authenticate, requireRole }) {
+  const router = protectedRouter(authenticate, requireRole, ["ADMIN", "BROKER"]);
+  const controller = createPropertyAdminController(services);
+  router.get("/:id/investors", validate(adminPropertyInvestors), controller.investors);
+  return router;
+}
