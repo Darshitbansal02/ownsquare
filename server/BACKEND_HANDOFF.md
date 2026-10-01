@@ -153,3 +153,29 @@ ACTIVE-only allocation uses original principal. Empty ROI is null.
 - Five portfolio tests passed (2 unit, 3 real replica-set); lint passed.
   Verified repeated purchases, deterministic one-year estimates, refunds, loss
   payouts, empty portfolios, owner isolation and no wallet/value double count.
+
+## Upload/media handoff
+
+`createCloudinaryAdapter({cloudName,apiKey,apiSecret})` builds the real server SDK
+adapter without globally mutating Cloudinary configuration.
+`createUploadService({...db,features,mediaAdapter})` exposes
+`upload(actorId,purpose,file)` and `verifyAttachments(ownerId,media,purpose,session?)`.
+The owned router mounts at `/api/v1/uploads` and accepts only multipart
+`file` + `purpose`. Byte/MIME detection and 5 MB limits precede provider upload.
+Provider failures return explicit errors; no provider fallback exists.
+
+Dhruv explicitly approved creator-owned or ADMIN-uploaded property assets,
+but not another broker's assets. KYC remains strictly investor-owned.
+Server-stamped Cloudinary context carries ownerId/purpose/name/MIME; attachment
+verification retrieves that metadata and verifies canonical URL/resource/type.
+KYC uses authenticated delivery with signed URLs. Those URLs must remain private
+in Darshit's KYC/User DTO adapters and never be logged or exposed publicly.
+Draft/KYC services must call this verifier on attachment, not accept arbitrary URLs.
+Asset cleanup/deletion requires Chetan's coordinated maintenance policy; no
+unrequested deletion endpoint or unsafe cleanup job is supplied.
+
+- Upload tests: 6 passed (content/config, actual multipart parser, and three
+  real-database ownership/lifecycle tests with an external media-provider double).
+  Fixed Mongoose subdocument normalization exposed by the publication test.
+  Lint passed. No actual Cloudinary network upload or private delivery access was
+  verified: configured account credentials and consuming KYC routes are missing.

@@ -72,3 +72,12 @@ Do not use templates as completed entries; preserve all genuine team additions w
   allocation, safe noncash estimates, realized/refunded values and ledger totals.
 - Verification: 5 focused portfolio tests and lint pass.
 - Branch: `feature/backend-portfolio`, stacked on payouts.
+
+### 2026-10-01 - Dhruv: uploads and media ownership
+
+- Added real Cloudinary SDK adapter, content/size validation, private KYC delivery,
+  metadata/URL ownership verifier and assigned multipart adapter.
+- Recorded explicitly approved ADMIN-property-asset policy; KYC remains strict.
+- Verification: 6 tests and lint pass. Provider double used; actual Cloudinary
+  account/delivery and authenticated upload integration remain unverified.
+- Branch: `feature/backend-uploads`, stacked on portfolio.

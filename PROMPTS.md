@@ -92,3 +92,9 @@ focused payout tests passed (3 unit, 4 real replica-set); lint passed.
 Portfolio increment: historical per-property aggregation, noncash estimates,
 realized payout/refund values, ledger-only payout totals and assigned summary
 adapter. Five focused tests passed (2 unit, 3 real replica-set); lint passed.
+
+Upload increment: Cloudinary adapter, byte/MIME/size checks, private authenticated
+KYC URLs, server metadata ownership verification and owned multipart adapter.
+Dhruv approved creator-or-ADMIN property media and strictly own-investor KYC.
+Six tests passed after correcting Mongoose subdocument normalization; lint passed.
+Media-provider tests use an explicit external double, not a live Cloudinary claim.
