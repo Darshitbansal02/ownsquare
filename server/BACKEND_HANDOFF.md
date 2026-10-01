@@ -140,3 +140,16 @@ contract or undocumented field has been introduced.
   passed. Source 1.4-crore amounts/37.2% ROI, preview with no writes, concurrent/
   repeated sales, stale rate, loss/zero shares, exact row remainder and complete
   rollback after a payout credit were verified.
+
+## Portfolio handoff
+
+`createPortfolioService({...db,ledger})` exposes `summary(investorId)`.
+The owned router mounts at `/api/v1/portfolio`, GET `/summary`.
+Estimates use server time and 365.25-day years; they never post cash.
+Current value excludes wallet cash; payout totals exclude refunds/top-ups.
+Holdings aggregate repeated purchases, preserve EXITED/REFUNDED history, and
+ACTIVE-only allocation uses original principal. Empty ROI is null.
+
+- Five portfolio tests passed (2 unit, 3 real replica-set); lint passed.
+  Verified repeated purchases, deterministic one-year estimates, refunds, loss
+  payouts, empty portfolios, owner isolation and no wallet/value double count.

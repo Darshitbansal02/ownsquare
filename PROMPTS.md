@@ -88,3 +88,7 @@ remainders, guarded sale/fee posting, unique payout and atomic history updates.
 Dhruv approved preserving the existing stateless preview API and handing price
 reconfirmation to Darshit's UI rather than inventing a token contract. Seven
 focused payout tests passed (3 unit, 4 real replica-set); lint passed.
+
+Portfolio increment: historical per-property aggregation, noncash estimates,
+realized payout/refund values, ledger-only payout totals and assigned summary
+adapter. Five focused tests passed (2 unit, 3 real replica-set); lint passed.

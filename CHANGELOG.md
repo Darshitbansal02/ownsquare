@@ -65,3 +65,10 @@ Do not use templates as completed entries; preserve all genuine team additions w
   UI's responsibility under the explicitly approved unchanged preview contract.
 - Verification: 7 payout tests and lint pass.
 - Branch: `feature/backend-payouts`, stacked on investments.
+
+### 2026-10-01 - Dhruv: portfolio aggregation
+
+- Added portfolio summary service/adapter with historical aggregation, ACTIVE
+  allocation, safe noncash estimates, realized/refunded values and ledger totals.
+- Verification: 5 focused portfolio tests and lint pass.
+- Branch: `feature/backend-portfolio`, stacked on payouts.
