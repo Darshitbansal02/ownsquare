@@ -6,6 +6,9 @@ import { AdminPropertySale } from './AdminPropertySale.jsx';
 import { AdminUsers } from './AdminUsers.jsx';
 import { AdminKyc } from './AdminKyc.jsx';
 import { AdminWithdrawals } from './AdminWithdrawals.jsx';
+import { AdminAnalytics } from './AdminAnalytics.jsx';
+import { AdminNotifications } from './AdminNotifications.jsx';
+import { AdminAudit } from './AdminAudit.jsx';
 import { AdminSettings } from './AdminSettings.jsx';
 
 export function AdminPortal() {
@@ -38,6 +41,10 @@ export function AdminPortal() {
         <AdminProperties onSelectSellProperty={handleSelectSellProperty} />
       )}
 
+      {activeTab === 'approvalQueue' && (
+        <AdminProperties initialFilter="PENDING_REVIEW" onSelectSellProperty={handleSelectSellProperty} />
+      )}
+
       {activeTab === 'sell' && (
         <AdminPropertySale property={sellingProperty} onBack={handleBackFromSale} />
       )}
@@ -49,6 +56,12 @@ export function AdminPortal() {
       {activeTab === 'kyc' && <AdminKyc />}
 
       {activeTab === 'withdrawals' && <AdminWithdrawals />}
+
+      {activeTab === 'analytics' && <AdminAnalytics />}
+
+      {activeTab === 'notifications' && <AdminNotifications />}
+
+      {activeTab === 'audit' && <AdminAudit />}
 
       {activeTab === 'settings' && <AdminSettings />}
     </AdminLayout>
