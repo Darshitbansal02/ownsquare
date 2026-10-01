@@ -46,7 +46,7 @@ export function createApp({ env, db, mediaAdapter, mailer, logger = console }) {
     mediaAdapter, env, mailer: mail });
   const authenticate = createAuthenticate({ models: db.models, secret: env.jwt.secret });
   const requireRole = createRequireRole();
-  const auth = { services, authenticate, requireRole };
+  const auth = { services, authenticate, requireRole, models: db.models };
   const kyc = createKycRouter(auth);
 
   app.get("/health", async (_req, res) => {

@@ -7,7 +7,10 @@ export function createApi(baseURL, transport = fetch) {
   const isAuthExempt = path => path.startsWith('/auth/');
 
   async function rawRequest(path, {method='GET',body,query,headers={},token=accessToken} = {}) {
-    const url = new URL(baseURL.replace(/\/$/,'') + path);
+    const cleanBase = baseURL.replace(/\/+$/, '');
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    const url = new URL(cleanBase + cleanPath);
+    url.pathname = url.pathname.replace(/\/+/g, '/');
     for(const [key,value] of Object.entries(query??{})) if(value!==undefined && value!==null && value!=='') url.searchParams.set(key,String(value));
     const multipart = typeof FormData !== 'undefined' && body instanceof FormData;
     const response = await transport(url,{

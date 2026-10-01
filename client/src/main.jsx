@@ -8,5 +8,6 @@ import {createApi} from './api/client.js';
 import * as constants from '../../shared/constants.js';
 import './index.css';
 import './main.css';
-const api=createApi(import.meta.env.VITE_API_BASE_URL),queryClient=new QueryClient();
+const rawApiUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/([^:]\/)\/+/g, '$1').replace(/\/+$/, '');
+const api=createApi(rawApiUrl),queryClient=new QueryClient();
 createRoot(document.getElementById('root')).render(<QueryClientProvider client={queryClient}><BrowserRouter><AuthProvider api={api} queryClient={queryClient} constants={constants}><AppRoutes/></AuthProvider></BrowserRouter></QueryClientProvider>);
