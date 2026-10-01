@@ -63,3 +63,9 @@ helpers, database/index readiness, transaction/validation/error/rate-limit helpe
 and authorized backend dependency/lint/test configuration. Unit runner: 7/7 tests;
 lint passed; dependency audit clean after updating new test tooling. No auth,
 application bootstrap, frontend, seed or external provider was implemented.
+
+Ledger/wallet increment: one posting/reconciliation helper, signed expiring mock
+proofs, withdrawal reservations/processing, transactional notification persistence,
+and owned wallet/transaction adapters. Real replica-set integration tests: 4/4;
+unit tests: 12/12; lint passed. Initial database-binary download timeout was
+resolved by a separate preparation command; no fake database/auth used as proof.

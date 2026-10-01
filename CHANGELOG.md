@@ -30,3 +30,12 @@ Do not use templates as completed entries; preserve all genuine team additions w
 - Verification: 7 unit tests passed; lint passed; npm install audit reports no
   vulnerabilities after updating Vitest. No deployed/authenticated API claim.
 - Branch: `feature/backend-foundation`; bootstrap/seed/auth remain owner handoffs.
+
+### 2026-10-01 - Dhruv: ledger and wallet
+
+- Single ledger writer with cache/sequence reconciliation, signed mock top-up
+  orders, unique order/payment credits, withdrawal reservation/review and events.
+- Added owned wallet/transactions adapters; real auth must be supplied by Devang.
+- Verification: 4 replica-set tests and 12 unit tests pass; lint passes.
+  Initial binary preparation timeout resolved before running financial assertions.
+- Branch: `feature/backend-ledger-wallet`, stacked on foundation.

@@ -34,4 +34,10 @@ export function appendOnly(schema) {
   schema.pre("save", function () {
     if (!this.isNew) throw new ApiError("CONFLICT", "Financial history is immutable");
   });
+  schema.pre("deleteOne", { document: true, query: false }, function () {
+    throw new ApiError("CONFLICT", "Financial history is immutable");
+  });
+  schema.pre("bulkWrite", function () {
+    throw new ApiError("CONFLICT", "Financial history is immutable");
+  });
 }

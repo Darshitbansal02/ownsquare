@@ -50,3 +50,37 @@ provider integration or teammate module is claimed verified before it exists.
   Initial Vitest 3 dependency audit reported 2 moderate development advisories;
   upgrading to Vitest 5 resolved them. Install audit now reports 0 vulnerabilities.
   Runtime minimum is Node 22.13 for current tooling. No replica-set tests yet.
+
+- Ledger/wallet: 4 real MongoDB 7.0.24 replica-set integration tests passed:
+  concurrent payment verification, reservation/review races, rejection release,
+  rollback after ledger insertion, append-only guards, inactive actors and cache
+  reconciliation. Unit suite now passes 12 tests; lint passes.
+  First attempt ran no assertions because binary download exceeded setup timeout.
+  Preparing the binary separately resolved this; use
+  `npm run test:prepare-db --workspace server` on a fresh Windows machine.
+
+## Wallet/session handoff
+
+Factories receive `{connection, models}` from database readiness. Ledger exposes
+`post(input, session)`, `lock(userId, session)`, `read(userId, session)` and
+`list(actorId, validatedQuery)`. `post` is the sole balance/ledger writer.
+`lock` serializes reservations; gaps in ledger walletVersion are expected.
+
+`createWalletService({...db, ledger, payment:{provider:"mock",secret}})` supplies
+`get(userId)`, `order(userId, amount)`, `verify(userId, proof)`.
+The mock secret must have at least 32 characters; orders expire in ten minutes.
+Provider selection other than the approved mock fails explicitly.
+
+`createWithdrawalService({...db, ledger, notifications, features})` supplies
+`request(userId,input)`, `process(adminId,withdrawalId,input)`,
+`list(actorId,query,admin=false)`. Processing is simulated; no bank transfer.
+Darshit owns the admin HTTP adapter. Notification persistence is introduced here
+because withdrawal events must commit in the same transaction; its HTTP routes
+remain Devang's.
+
+`createWalletRouter({services,authenticate,requireRole})` mounts at
+`/api/v1/wallet`; `createTransactionsRouter` with the same arguments mounts at
+`/api/v1/transactions`. Auth functions are required, not substituted.
+`requireRole(...roles)` must return middleware. Controllers use `req.user._id`
+from Devang's verified persisted context; service methods recheck active role.
+Authenticated HTTP integration remains blocked pending real auth/bootstrap.
