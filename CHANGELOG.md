@@ -81,3 +81,11 @@ Do not use templates as completed entries; preserve all genuine team additions w
 - Verification: 6 tests and lint pass. Provider double used; actual Cloudinary
   account/delivery and authenticated upload integration remain unverified.
 - Branch: `feature/backend-uploads`, stacked on portfolio.
+
+### 2026-10-01 - Dhruv: notifications and public statistics
+
+- Added public principal/investor/capability aggregates and the assigned stats
+  adapter; completed recipient notification and coordinated-service exports.
+- Notification HTTP and actual app/auth composition remain teammate handoffs.
+- Verification: 4 real replica-set tests, lint and dependency audit pass.
+- Branch: `feature/backend-notifications-stats`, stacked on uploads.

@@ -179,3 +179,30 @@ unrequested deletion endpoint or unsafe cleanup job is supplied.
   Fixed Mongoose subdocument normalization exposed by the publication test.
   Lint passed. No actual Cloudinary network upload or private delivery access was
   verified: configured account credentials and consuming KYC routes are missing.
+
+## Notifications, statistics and composition handoff
+
+`createNotificationService({...db,features})` exposes
+`record(event,session)` (transaction-only),
+`list(actorId,validatedQuery)` and `markRead(actorId,notificationId)`.
+Devang owns notification validators/controllers/routes; Darshit/Devang call
+`record` in their KYC/enquiry transactions. Disabled event persistence is an
+intentional no-op; disabled notification read endpoints fail FEATURE_DISABLED.
+No email provider or competing event/finance writer was added.
+
+`createPublicStatsService({...db,features,paymentProvider:"mock"})` returns
+non-refunded principal, active registered investor count and explicit safe
+capabilities only. `createPublicStatsRouter({services,authenticate})` mounts at
+`/api/v1/platform`; GET `/stats` is public, but supplied tokens invoke real auth.
+Neither secrets nor user/property/ledger records appear in this response.
+
+`utils/backendServices.js`: `createBackendServices(db,{features,payment,mediaAdapter})`
+constructs the single coordinated service set. Configuration is passed in from
+Chetan's validated environment, never read from client requests or silently
+defaulted. It does not create an Express app, listen, mount teammate routers,
+seed records or supply authentication.
+
+- Four focused notification/statistics replica-set tests passed; lint and
+  `npm audit` passed (0 vulnerabilities). Tested recipient filtering, repeated
+  mark-read, event rollback, disabled flags, ACTIVE/EXITED principal versus refunds,
+  active investor counts and explicit configuration/composition.

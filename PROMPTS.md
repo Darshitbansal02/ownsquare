@@ -98,3 +98,8 @@ KYC URLs, server metadata ownership verification and owned multipart adapter.
 Dhruv approved creator-or-ADMIN property media and strictly own-investor KYC.
 Six tests passed after correcting Mongoose subdocument normalization; lint passed.
 Media-provider tests use an explicit external double, not a live Cloudinary claim.
+
+Notifications/statistics increment: recipient-only persistence/read helpers
+(Devang still owns HTTP), truthful public aggregates/capabilities, optional-token
+public adapter and explicit service composition handoff. Four focused replica-set
+tests passed; lint and npm audit passed (zero vulnerabilities).
