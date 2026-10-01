@@ -121,3 +121,15 @@ Do not use templates as completed entries; preserve all genuine team additions w
 - Continuation rerun: 65 tests in 18 files pass (36.07 seconds); lint and
   whitespace check pass; dependency audit reports 0 vulnerabilities.
   These results exclude the deferred tracked-main integration.
+
+### 2026-10-01 - Dhruv: backend feature publication
+
+- Explicitly authorized pushing all nine backend feature branches and creating
+  a PR for each. Published draft PRs #2 through #10 with "Backend complete"
+  titles, feature-specific scope, test evidence and owner-review requirements.
+- PR bases preserve the feature dependency stack. Verified pushed refs; remote
+  main remained `c6a2699`. No merge, history rewrite or integration claim.
+- Recorded publication in [server/BACKEND_HANDOFF.md](server/BACKEND_HANDOFF.md).
+  New publication commit/text excludes attribution trailers at Dhruv's request.
+- Documentation-only publication; prior backend evidence remains 65 passing
+  tests, lint/whitespace pass and a clean dependency audit, not remote CI proof.

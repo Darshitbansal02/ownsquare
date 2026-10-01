@@ -378,3 +378,32 @@ Preserved-stack rerun on 2026-10-01 at 19:22 local time:
 `npm run lint` passed; `npm audit` reported 0 vulnerabilities; and
 `git diff --check` passed. This rerun deliberately excludes tracked-main changes
 and does not satisfy the combined integration gate.
+
+## Publication — 2026-10-01
+
+Dhruv subsequently authorized pushing all backend feature branches and creating
+one well-described PR per branch with a "Backend complete" message. The earlier
+no-push statements describe the state before this explicit publication request.
+No main merge, rebase or teammate-source reconciliation was authorized.
+
+All nine branches were pushed to `dhruvbhadhotiya/OwnSquare`; their remote refs
+were checked against the local commits. Remote main remained `c6a2699`.
+Each PR is a draft with feature-specific summaries, actual verification,
+limitations, dependent base and affected-owner review gates. The existing
+integration overlap is not concealed by the completion title.
+
+| PR | Head branch | Base |
+|---|---|---|
+| [#2](https://github.com/dhruvbhadhotiya/OwnSquare/pull/2) | `feature/backend-foundation` | `main` |
+| [#3](https://github.com/dhruvbhadhotiya/OwnSquare/pull/3) | `feature/backend-ledger-wallet` | `feature/backend-foundation` |
+| [#4](https://github.com/dhruvbhadhotiya/OwnSquare/pull/4) | `feature/backend-lifecycle-refunds` | `feature/backend-ledger-wallet` |
+| [#5](https://github.com/dhruvbhadhotiya/OwnSquare/pull/5) | `feature/backend-investments` | `feature/backend-lifecycle-refunds` |
+| [#6](https://github.com/dhruvbhadhotiya/OwnSquare/pull/6) | `feature/backend-payouts` | `feature/backend-investments` |
+| [#7](https://github.com/dhruvbhadhotiya/OwnSquare/pull/7) | `feature/backend-portfolio` | `feature/backend-payouts` |
+| [#8](https://github.com/dhruvbhadhotiya/OwnSquare/pull/8) | `feature/backend-uploads` | `feature/backend-portfolio` |
+| [#9](https://github.com/dhruvbhadhotiya/OwnSquare/pull/9) | `feature/backend-notifications-stats` | `feature/backend-uploads` |
+| [#10](https://github.com/dhruvbhadhotiya/OwnSquare/pull/10) | `feature/backend-verification` | `feature/backend-notifications-stats` |
+
+No new attribution trailer is added at Dhruv's explicit request; existing
+commits are preserved without rewriting history. Publication changes only
+handoff/log documentation; previous 65-test evidence is not a new CI claim.

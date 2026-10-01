@@ -149,3 +149,32 @@ Actual continuation rerun: `npm run test:backend` passed 65 tests in 18 files
 (36.07 seconds, 19:22 local time); `npm run lint` and `git diff --check` passed;
 `npm audit` reported 0 vulnerabilities. Tracked-main changes were not merged or
 included in this verification.
+
+## P-003 — Backend branch and PR publication
+
+Owner: Dhruv
+
+Date: 2026-10-01
+
+Prompt (faithful excerpt):
+
+```text
+Now push all the branches with the message backend complete and also a good
+PR request for each branch with a message.
+```
+
+Additional instruction: exclude attribution trailers from new publication text
+and commits. Existing commits were not amended or rewritten.
+
+Result: pushed the nine backend feature branches, verified their remote refs,
+and created draft PRs #2 through #10 with "Backend complete" titles, feature
+summaries, real test evidence and explicit integration limitations. PR bases
+follow the dependency stack; only foundation targets main. Remote main was
+unchanged and the tracked-main overlap remains an integration blocker.
+
+Files changed: publication records in [server/BACKEND_HANDOFF.md](server/BACKEND_HANDOFF.md),
+[PROMPTS.md](PROMPTS.md) and [CHANGELOG.md](CHANGELOG.md).
+
+Verification: GitHub returned all nine draft PRs; each pushed feature ref matched
+its local commit. Documentation-only publication does not require a new code
+test run or claim that GitHub CI passed.
