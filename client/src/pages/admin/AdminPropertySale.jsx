@@ -1,86 +1,75 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { formatINR, formatNumberIN } from '../../utils/formatINR.js';
 import { StatusChip } from '../../components/StatusChip.jsx';
 import { ConfirmModal } from '../../components/ConfirmModal.jsx';
 
 export function AdminPropertySale({ property, onBack }) {
-  // Fallback demo holding property if none passed
-  const activeProperty = property || {
-    _id: '100000000000000000000001',
-    title: '2BHK, Sector 150, Noida',
-    city: 'Noida',
-    state: 'Uttar Pradesh',
-    valuation: 1000000000, // ₹1 Cr in paise
-    totalUnits: 1000,
-    unitPrice: 1000000, // ₹10,000 in paise
-    status: 'HOLDING',
-    brokerName: 'Rohit Broker'
-  };
+  // Default property if none passed from props
+  const activeProperty = useMemo(() => {
+    return property || {
+      _id: 'prop_pune_central',
+      title: 'Pune Central, Pune, MH',
+      city: 'Pune',
+      state: 'Maharashtra',
+      image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&auto=format&fit=crop&q=80',
+      valuation: 1800000000, // ₹18,00,00,000 in paise
+      totalUnits: 9000,
+      unitsSold: 9000,
+      unitPrice: 2000000, // ₹20,000 in paise
+      totalInvestors: 210,
+      status: 'HOLDING',
+      brokerName: 'Apex Realty Advisors',
+      rentalYield: 8.4
+    };
+  }, [property]);
 
-  // Default sale price: ₹1.4 Crore (140,000,000 paise * 100 = 1,400,000,000 paise)
-  const [salePriceRupees, setSalePriceRupees] = useState(14000000);
-  const [preview, setPreview] = useState(null);
-  const [loadingPreview, setLoadingPreview] = useState(false);
-  const [executionResult, setExecutionResult] = useState(null);
+  // Sale price in Rupees (default: ₹22,00,00,000)
+  const initialSalePrice = activeProperty.valuation ? Math.round((activeProperty.valuation / 100) * 1.222) : 220000000;
+  const [salePriceRupees, setSalePriceRupees] = useState(initialSalePrice);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [executing, setExecuting] = useState(false);
+  const [executionResult, setExecutionResult] = useState(null);
+  const [showAllInvestors, setShowAllInvestors] = useState(false);
 
-  // Calculate read-only mathematical preview
-  const handleCalculatePreview = () => {
-    setLoadingPreview(true);
-    setTimeout(() => {
-      const salePricePaise = Math.round(Number(salePriceRupees) * 100);
-      const platformFeePct = 2; // 2% platform fee
-      const feeBasisPoints = 200;
-      const platformFee = Math.floor((salePricePaise * feeBasisPoints) / 10000);
-      const distributable = salePricePaise - platformFee;
+  // Calculations
+  const platformFeePct = 2.0; // 2%
+  const totalInvestedRupees = (activeProperty.valuation || 1800000000) / 100;
+  const salePriceVal = Number(salePriceRupees) || 0;
+  const platformFeeRupees = Math.round((salePriceVal * platformFeePct) / 100);
+  const distributableRupees = salePriceVal - platformFeeRupees;
+  const totalProfitRupees = distributableRupees - totalInvestedRupees;
+  const profitPercentage = totalInvestedRupees > 0 ? ((totalProfitRupees / totalInvestedRupees) * 100).toFixed(1) : 0;
 
-      // Realistic holder distribution conforming to source walkthrough (PRD.md / API_DESIGN.md)
-      const mockHolders = [
-        { investorId: '000000000000000000000003', name: 'Aman', units: 20, invested: 20000000 },
-        { investorId: '000000000000000000000004', name: 'Priya', units: 50, invested: 50000000 },
-        { investorId: '000000000000000000000005', name: 'Karan', units: 400, invested: 400000000 },
-        { investorId: '000000000000000000000006', name: 'Isha', units: 300, invested: 300000000 },
-        { investorId: '000000000000000000000007', name: 'Neha', units: 230, invested: 230000000 }
-      ];
+  // Mock investor breakdown
+  const sampleInvestors = useMemo(() => {
+    const rawList = [
+      { id: 'inv_1', name: 'Rohit Kumar', units: 450, ownership: 5.0, avatar: 'RK' },
+      { id: 'inv_2', name: 'Priya Sharma', units: 300, ownership: 3.3, avatar: 'PS' },
+      { id: 'inv_3', name: 'Aman Patel', units: 250, ownership: 2.8, avatar: 'AP' },
+      { id: 'inv_4', name: 'Vikram Singh', units: 200, ownership: 2.2, avatar: 'VS' },
+      { id: 'inv_5', name: 'Neha Gupta', units: 180, ownership: 2.0, avatar: 'NG' },
+      { id: 'inv_6', name: 'Suresh Reddy', units: 150, ownership: 1.7, avatar: 'SR' },
+      { id: 'inv_7', name: 'Ananya Roy', units: 140, ownership: 1.5, avatar: 'AR' },
+      { id: 'inv_8', name: 'Devendra Bhadhotia', units: 120, ownership: 1.3, avatar: 'DB' },
+    ];
 
-      let sumAllocated = 0;
-      const items = mockHolders.map((holder) => {
-        const share = Math.floor((distributable * holder.units) / activeProperty.totalUnits);
-        sumAllocated += share;
-        const roi = Number((((share - holder.invested) / holder.invested) * 100).toFixed(1));
-        return {
-          ...holder,
-          payoutAmount: share,
-          roiPct: roi,
-          ownershipPct: (holder.units / activeProperty.totalUnits) * 100
-        };
-      });
+    const totalUnits = activeProperty.totalUnits || 9000;
 
-      const remainder = distributable - sumAllocated;
-      let remainderInvestorId = null;
+    return rawList.map((inv) => {
+      const shareOfInvested = Math.round((totalInvestedRupees * inv.units) / totalUnits);
+      const shareOfDistributable = Math.round((distributableRupees * inv.units) / totalUnits);
+      const gain = shareOfDistributable - shareOfInvested;
+      return {
+        ...inv,
+        investedRupees: shareOfInvested,
+        payoutRupees: shareOfDistributable,
+        gainRupees: gain,
+        gainPct: shareOfInvested > 0 ? ((gain / shareOfInvested) * 100).toFixed(1) : 0
+      };
+    });
+  }, [activeProperty.totalUnits, totalInvestedRupees, distributableRupees]);
 
-      if (remainder > 0) {
-        items.sort((a, b) => b.units - a.units);
-        items[0].payoutAmount += remainder;
-        remainderInvestorId = items[0].investorId;
-      }
-
-      setPreview({
-        salePrice: salePricePaise,
-        platformFeePct,
-        platformFee,
-        distributable,
-        items,
-        remainder,
-        remainderInvestorId,
-        totalPayout: distributable
-      });
-      setLoadingPreview(false);
-    }, 350);
-  };
-
-  const handleExecuteSale = () => {
+  const handleExecutePayout = () => {
     setExecuting(true);
     setTimeout(() => {
       setExecuting(false);
@@ -88,279 +77,307 @@ export function AdminPropertySale({ property, onBack }) {
       setExecutionResult({
         propertyStatus: 'SOLD',
         soldAt: new Date().toISOString(),
-        payoutId: '300000000000000000000001',
-        totalDistributed: preview.distributable,
-        platformFeeCredited: preview.platformFee,
-        investorCount: preview.items.length
+        payoutId: 'PAYOUT-' + Math.floor(100000 + Math.random() * 900000),
+        grossSale: salePriceVal,
+        platformFee: platformFeeRupees,
+        netDistributed: distributableRupees,
+        totalInvestors: activeProperty.totalInvestors || 210
       });
     }, 600);
   };
 
-  return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Top Header with Back button */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="text-sm font-semibold text-[#0F2A4A] hover:underline flex items-center space-x-1"
-        >
-          <span>&larr;</span> <span>Back to Properties</span>
-        </button>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-purple-100 text-purple-800">
-          HOLDING EXIT WORKFLOW
-        </span>
-      </div>
-
-      {/* Property Overview Card */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-2xl font-bold text-[#0F2A4A]">{activeProperty.title}</h1>
-              <StatusChip status={activeProperty.status} />
-            </div>
-            <p className="text-sm text-gray-500 mt-1">
-              {activeProperty.city}, {activeProperty.state} &bull; Sourced by {activeProperty.brokerName}
-            </p>
+  if (executionResult) {
+    return (
+      <div className="max-w-3xl mx-auto py-8">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-8 text-center">
+          <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-          <div className="text-right">
-            <p className="text-xs uppercase font-bold text-gray-400">Original Valuation</p>
-            <p className="text-xl font-bold text-[#0F2A4A]">{formatINR(activeProperty.valuation)}</p>
-            <p className="text-xs text-gray-500">{activeProperty.totalUnits} Units &bull; {formatINR(activeProperty.unitPrice)} / unit</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Execution Completed Receipt View */}
-      {executionResult ? (
-        <div className="bg-white rounded-xl p-8 border-2 border-emerald-500 shadow-xl text-center space-y-4">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl font-bold">
-            ✓
-          </div>
-          <h2 className="text-2xl font-bold text-[#0F2A4A]">Property Sale Successfully Executed!</h2>
-          <p className="text-sm text-gray-600 max-w-xl mx-auto">
-            The property has transitioned to <strong>SOLD</strong>. Proportional investor payouts have been atomically credited to each investor's in-app wallet via the immutable ledger.
+          <h2 className="text-2xl font-bold text-slate-900">Property Sale Executed Successfully!</h2>
+          <p className="text-slate-500 text-sm mt-1 max-w-md mx-auto">
+            {activeProperty.title} is now recorded as <span className="font-semibold text-slate-800">SOLD</span>. Investor wallet balances have been credited via the platform ledger.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto pt-4 text-left">
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <span className="text-xs text-gray-500">Gross Realized Proceeds</span>
-              <p className="text-lg font-bold text-[#0F2A4A]">{formatINR(preview.salePrice)}</p>
+          <div className="mt-6 bg-slate-50 rounded-xl p-5 border border-slate-100 max-w-lg mx-auto text-left space-y-3">
+            <div className="flex justify-between text-sm py-1 border-b border-slate-200/60">
+              <span className="text-slate-500">Payout Reference</span>
+              <span className="font-mono font-semibold text-slate-800">{executionResult.payoutId}</span>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <span className="text-xs text-gray-500">Net Distributable</span>
-              <p className="text-lg font-bold text-emerald-600">{formatINR(executionResult.totalDistributed)}</p>
+            <div className="flex justify-between text-sm py-1 border-b border-slate-200/60">
+              <span className="text-slate-500">Gross Sale Price</span>
+              <span className="font-semibold text-slate-800">₹{formatNumberIN(executionResult.grossSale)}</span>
             </div>
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <span className="text-xs text-gray-500">Platform 2% Fee</span>
-              <p className="text-lg font-bold text-[#D4A017]">{formatINR(executionResult.platformFeeCredited)}</p>
+            <div className="flex justify-between text-sm py-1 border-b border-slate-200/60">
+              <span className="text-slate-500">Platform Fee (2%)</span>
+              <span className="font-semibold text-emerald-600">+₹{formatNumberIN(executionResult.platformFee)}</span>
+            </div>
+            <div className="flex justify-between text-sm py-1 border-b border-slate-200/60">
+              <span className="text-slate-500">Net Distributed</span>
+              <span className="font-bold text-slate-900">₹{formatNumberIN(executionResult.netDistributed)}</span>
+            </div>
+            <div className="flex justify-between text-sm py-1">
+              <span className="text-slate-500">Recipients Credited</span>
+              <span className="font-semibold text-slate-800">{executionResult.totalInvestors} Token Holders</span>
             </div>
           </div>
 
-          <div className="pt-4">
+          <div className="mt-8 flex justify-center gap-3">
             <button
               onClick={onBack}
-              className="px-6 py-2.5 bg-[#0F2A4A] hover:bg-[#1A3D66] text-white rounded-lg text-sm font-semibold shadow-md transition-colors"
+              className="px-6 py-2.5 rounded-lg bg-[#0F1E36] hover:bg-slate-900 text-white text-sm font-semibold shadow-sm transition-colors"
             >
-              Return to Properties Management
+              Return to Properties
             </button>
           </div>
         </div>
-      ) : (
-        <>
-          {/* Sale Price Input Section */}
-          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm space-y-4">
-            <h2 className="text-lg font-bold text-[#0F2A4A]">1. Enter Agreed Property Sale Price</h2>
-            <p className="text-sm text-gray-600">
-              Provide the total gross consideration offered by the acquiring buyer. The platform supports profitable exits as well as loss-bearing depreciated sales.
-            </p>
+      </div>
+    );
+  }
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Agreed Sale Price (in Indian Rupees &bull; ₹)
+  return (
+    <div className="space-y-6">
+      {/* Top Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={onBack}
+            className="w-9 h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-600 transition-colors shadow-xs"
+            title="Back to Properties"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Record Sale</h1>
+            <p className="text-sm text-slate-500">Execute property sale and process investor payouts</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Top 2 Cards: Property Summary & Sale Details */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Property Summary */}
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-slate-900">Property Summary</h2>
+              <StatusChip status={activeProperty.status || 'HOLDING'} />
+            </div>
+
+            <div className="flex items-start gap-4 mb-5">
+              <div className="w-24 h-20 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
+                <img
+                  src={activeProperty.image || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=80'}
+                  alt={activeProperty.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-slate-900 truncate">{activeProperty.title}</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{activeProperty.city}, {activeProperty.state}</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                    Broker: {activeProperty.brokerName || 'Apex Realty'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4 space-y-3">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-500">Units Sold</span>
+                <span className="font-semibold text-slate-900">
+                  {formatNumberIN(activeProperty.unitsSold || 9000)} (100%)
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-emerald-500 h-1.5 rounded-full w-full"></div>
+              </div>
+
+              <div className="flex justify-between items-center text-sm pt-1">
+                <span className="text-slate-500">Total Investment</span>
+                <span className="font-bold text-slate-900">₹{formatNumberIN(totalInvestedRupees)}</span>
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-500">Total Investors</span>
+                <span className="font-semibold text-slate-800">{activeProperty.totalInvestors || 210}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setShowAllInvestors(!showAllInvestors)}
+              className="w-full py-2.5 px-4 rounded-lg border border-slate-200 bg-slate-50/70 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+            >
+              <span>{showAllInvestors ? 'Hide Full Investor Ledger' : 'View Investors'}</span>
+              <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Right: Sale Details */}
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-slate-900">Sale Details</h2>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200/60">
+                P4 Capital Exit
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {/* Sale Price Input */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
+                  Sale Price (₹)
                 </label>
-                <div className="relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 font-bold">
+                <div className="relative rounded-lg shadow-xs">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-bold text-sm">
                     ₹
                   </div>
                   <input
                     type="number"
-                    min="1"
-                    step="1000"
                     value={salePriceRupees}
-                    onChange={(e) => {
-                      setSalePriceRupees(e.target.value);
-                      setPreview(null); // Invalidate stale preview
-                    }}
-                    className="block w-full pl-8 pr-12 py-2.5 border border-gray-300 rounded-lg text-lg font-bold text-[#0F2A4A] focus:outline-none focus:ring-2 focus:ring-[#0F2A4A]"
-                    placeholder="e.g. 14000000"
+                    onChange={(e) => setSalePriceRupees(e.target.value)}
+                    className="block w-full pl-8 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg text-slate-900 font-bold text-base focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-slate-900 transition-colors"
+                    placeholder="Enter total gross sale price"
                   />
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-xs text-gray-400">
-                    INR
-                  </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Storage equivalent: {formatINR(Math.round(Number(salePriceRupees || 0) * 100))} (
-                  {Math.round(Number(salePriceRupees || 0) * 100)} integer paise)
-                </p>
+                <p className="text-xs text-slate-400 mt-1">Formatted: ₹{formatNumberIN(salePriceVal)}</p>
               </div>
 
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={handleCalculatePreview}
-                  disabled={loadingPreview || !salePriceRupees}
-                  className="w-full py-2.5 bg-[#0F2A4A] hover:bg-[#1A3D66] text-white rounded-lg text-sm font-semibold shadow-md transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
-                >
-                  {loadingPreview ? (
-                    <span>Calculating Math...</span>
-                  ) : (
-                    <span>Calculate Payout Preview &rarr;</span>
-                  )}
-                </button>
+              {/* Calculations Box */}
+              <div className="bg-slate-50/80 rounded-lg p-4 border border-slate-100 space-y-2.5">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-600">Platform Fee (2%)</span>
+                  <span className="font-semibold text-slate-800">₹{formatNumberIN(platformFeeRupees)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm pt-1 border-t border-slate-200/50">
+                  <span className="text-slate-600 font-medium">Distributable</span>
+                  <span className="font-bold text-slate-900 text-base">₹{formatNumberIN(distributableRupees)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm pt-1 border-t border-slate-200/50">
+                  <span className="text-slate-600 font-medium">Total Profit</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-emerald-600">
+                      ₹{formatNumberIN(totalProfitRupees)} ({profitPercentage}%)
+                    </span>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-2xs font-bold bg-emerald-100 text-emerald-800">
+                      ↑ Gain
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Step 2: Interactive Payout Preview Card */}
-          {preview && (
-            <div className="space-y-6">
-              {/* Financial Math Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Gross Sale Price */}
-                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                  <span className="text-xs uppercase font-bold text-gray-400">Gross Sale Price</span>
-                  <p className="text-2xl font-bold text-[#0F2A4A] mt-1">{formatINR(preview.salePrice)}</p>
-                  <p className="text-xs text-gray-400 mt-1">100% Total Exit Consideration</p>
-                </div>
+          <div className="mt-6 pt-4 border-t border-slate-100 text-xs text-slate-400 flex items-center gap-2">
+            <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Proceeds distribute pro-rata to investors based on verified unit holdings.</span>
+          </div>
+        </div>
+      </div>
 
-                {/* Platform Fee */}
-                <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs uppercase font-bold text-gray-400">Platform Fee</span>
-                    <span className="text-xs font-bold text-[#D4A017] px-2 py-0.5 rounded bg-amber-50 border border-amber-200">
-                      {preview.platformFeePct}%
+      {/* Bottom Card: Investor Payout Preview Table */}
+      <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Investor Payout Preview</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Pro-rata net proceeds distribution preview for {activeProperty.totalInvestors || 210} token holders
+            </p>
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-700">
+            Sample Breakdown
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/70 border-b border-slate-200 text-2xs font-bold text-slate-500 uppercase tracking-wider">
+                <th className="py-3 px-6">Investor</th>
+                <th className="py-3 px-6">Units</th>
+                <th className="py-3 px-6">Ownership %</th>
+                <th className="py-3 px-6">Invested Amount</th>
+                <th className="py-3 px-6">Payout Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm">
+              {sampleInvestors.slice(0, showAllInvestors ? sampleInvestors.length : 4).map((inv) => (
+                <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
+                  <td className="py-3.5 px-6">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-xs text-slate-600">
+                        {inv.avatar}
+                      </div>
+                      <span className="font-semibold text-slate-800">{inv.name}</span>
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-6 text-slate-600 font-medium">
+                    {formatNumberIN(inv.units)}
+                  </td>
+                  <td className="py-3.5 px-6">
+                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700">
+                      {inv.ownership.toFixed(1)}%
                     </span>
-                  </div>
-                  <p className="text-2xl font-bold text-[#D4A017] mt-1">{formatINR(preview.platformFee)}</p>
-                  <p className="text-xs text-gray-400 mt-1">Floor basis points integer calculation</p>
-                </div>
+                  </td>
+                  <td className="py-3.5 px-6 font-medium text-slate-600">
+                    ₹{formatNumberIN(inv.investedRupees)}
+                  </td>
+                  <td className="py-3.5 px-6">
+                    <span className="font-bold text-emerald-600">
+                      ₹{formatNumberIN(inv.payoutRupees)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-                {/* Net Distributable */}
-                <div className="bg-white p-5 rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-sm">
-                  <span className="text-xs uppercase font-bold text-emerald-800">Net Distributable</span>
-                  <p className="text-2xl font-bold text-emerald-600 mt-1">{formatINR(preview.distributable)}</p>
-                  <p className="text-xs text-emerald-700 mt-1">
-                    Exact conservation sum to 100% of investors
-                  </p>
-                </div>
-              </div>
-
-              {/* Remainder Conservation Callout */}
-              {preview.remainder > 0 && (
-                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-center justify-between">
-                  <span>
-                    <strong>Exact Paise Conservation:</strong> A remainder of {preview.remainder} paise arose from integer floor division. In accordance with Business Rules D5, it has been assigned to the largest aggregate holder.
-                  </span>
-                  <span className="font-bold ml-2">Assigned: Largest Holder</span>
-                </div>
-              )}
-
-              {/* Fractional Shareholder Payout Table */}
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                  <h3 className="font-bold text-[#0F2A4A]">Investor Proceeds Breakdown</h3>
-                  <span className="text-xs font-semibold text-gray-500">
-                    {preview.items.length} Fractional Owners
-                  </span>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
-                    <thead className="bg-[#F7F8FA] text-gray-600 text-xs uppercase font-semibold">
-                      <tr>
-                        <th className="px-6 py-3">Investor</th>
-                        <th className="px-6 py-3">Units & Ownership %</th>
-                        <th className="px-6 py-3">Original Invested</th>
-                        <th className="px-6 py-3">Net Payout</th>
-                        <th className="px-6 py-3 text-right">Realized ROI %</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {preview.items.map((holder) => (
-                        <tr key={holder.investorId} className="hover:bg-gray-50/60">
-                          <td className="px-6 py-3.5 font-semibold text-[#0F2A4A]">
-                            {holder.name}
-                            <span className="block text-xs font-normal text-gray-400">ID: {holder.investorId}</span>
-                          </td>
-                          <td className="px-6 py-3.5 text-gray-700">
-                            {holder.units} units ({holder.ownershipPct}%)
-                          </td>
-                          <td className="px-6 py-3.5 text-gray-700">
-                            {formatINR(holder.invested)}
-                          </td>
-                          <td className="px-6 py-3.5 font-bold text-emerald-600">
-                            {formatINR(holder.payoutAmount)}
-                          </td>
-                          <td className="px-6 py-3.5 text-right font-bold">
-                            {holder.roiPct >= 0 ? (
-                              <span className="text-emerald-600">+{holder.roiPct}%</span>
-                            ) : (
-                              <span className="text-red-600">{holder.roiPct}%</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Step 3: Confirmation and Execution Button */}
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <h4 className="font-bold text-[#0F2A4A]">Confirm & Commit Sale Execution</h4>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    This will finalize the sale, transition the asset to SOLD, and atomically deposit {formatINR(preview.distributable)} into investor wallets.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setConfirmModalOpen(true)}
-                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold shadow-md transition-colors"
-                >
-                  Confirm Sale & Distribute Payouts
-                </button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+        {/* Action Bar Footer */}
+        <div className="p-4 sm:p-6 bg-slate-50/50 border-t border-slate-100 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="px-5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold transition-colors shadow-xs"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmModalOpen(true)}
+            className="px-6 py-2.5 rounded-lg bg-[#0F1E36] hover:bg-slate-900 text-white text-sm font-semibold shadow-sm transition-all flex items-center gap-2"
+          >
+            <span>Execute Payout</span>
+          </button>
+        </div>
+      </div>
 
       {/* Confirmation Modal */}
       <ConfirmModal
         isOpen={confirmModalOpen}
-        title="Confirm Irreversible Property Sale"
-        confirmLabel="Execute Sale & Payouts"
-        confirmVariant="success"
+        title="Confirm Property Exit & Investor Payout"
+        message={`Are you sure you want to finalize the sale of "${activeProperty.title}" for ₹${formatNumberIN(salePriceVal)}? This will irrevocably mark the property as SOLD, credit ₹${formatNumberIN(distributableRupees)} across ${activeProperty.totalInvestors || 210} investor wallets, and record a ₹${formatNumberIN(platformFeeRupees)} platform fee.`}
+        confirmText="Confirm & Execute Payout"
+        confirmVariant="danger"
         isLoading={executing}
+        onConfirm={handleExecutePayout}
         onCancel={() => setConfirmModalOpen(false)}
-        onConfirm={handleExecuteSale}
-      >
-        <div className="space-y-3 text-sm text-gray-600">
-          <p>
-            You are about to record the final sale of <strong>{activeProperty.title}</strong> for{' '}
-            <strong>{formatINR(preview?.salePrice)}</strong>.
-          </p>
-          <ul className="list-disc pl-5 space-y-1 text-xs text-gray-500">
-            <li>Platform fee of {formatINR(preview?.platformFee)} (2%) will be recorded in the ledger.</li>
-            <li>Net distributable of {formatINR(preview?.distributable)} will be credited to {preview?.items.length} investors.</li>
-            <li>All investment rows will be marked as EXITED.</li>
-            <li>This action is idempotent; subsequent requests will be rejected with HTTP 409 ALREADY_SOLD.</li>
-          </ul>
-        </div>
-      </ConfirmModal>
+      />
     </div>
   );
 }
+
+export default AdminPropertySale;
