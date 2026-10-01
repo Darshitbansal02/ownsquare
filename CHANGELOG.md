@@ -39,3 +39,12 @@ Do not use templates as completed entries; preserve all genuine team additions w
 - Verification: 4 replica-set tests and 12 unit tests pass; lint passes.
   Initial binary preparation timeout resolved before running financial assertions.
 - Branch: `feature/backend-ledger-wallet`, stacked on foundation.
+
+### 2026-10-01 - Dhruv: property lifecycle
+
+- Added lifecycle service and shared draft/submit financial validators without
+  taking over Devang's property CRUD or Darshit's admin adapters.
+- Complete publication requires upload ownership verifier integration.
+- Verification: 5 focused tests passed; corrected lint-reported comparisons.
+- Branch: `feature/backend-lifecycle-refunds`; invested-refund race proof follows
+  with the investment increment.

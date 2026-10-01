@@ -69,3 +69,9 @@ proofs, withdrawal reservations/processing, transactional notification persisten
 and owned wallet/transaction adapters. Real replica-set integration tests: 4/4;
 unit tests: 12/12; lint passed. Initial database-binary download timeout was
 resolved by a separate preparation command; no fake database/auth used as proof.
+
+Lifecycle increment: state/version guards, broker ownership, submit completeness,
+publication media-verifier dependency, rejection events and full-refund service.
+Focused tests: 5/5 passed; lint initially caught loose null comparisons, corrected
+to explicit null/undefined guards before commit. Full invested-refund verification
+is scheduled against the real investment service, not fabricated holdings.

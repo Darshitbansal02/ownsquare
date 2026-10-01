@@ -84,3 +84,19 @@ remain Devang's.
 `requireRole(...roles)` must return middleware. Controllers use `req.user._id`
 from Devang's verified persisted context; service methods recheck active role.
 Authenticated HTTP integration remains blocked pending real auth/bootstrap.
+
+## Lifecycle handoff
+
+`createPropertyLifecycleService({...db,ledger,notifications,uploads})` supplies
+`submit(actorId,propertyId)`, `approve(adminId,propertyId)`,
+`reject(adminId,propertyId,reason)`, `changeStatus(adminId,propertyId,status)`.
+Darshit/Devang own their HTTP adapters. Draft CRUD should reuse
+`validatePropertyFinancials` from `utils/propertyValidation.js`, guard version
+and historical investment existence, and never independently change lifecycle.
+Submission/publication fail explicitly until upload ownership verification is
+integrated; no arbitrary URL bypass is supplied.
+
+- Lifecycle focused tests: 3 real replica-set tests and 2 validation unit tests
+  passed. Foreign/incorrect-role submission, incomplete drafts, rejection/event
+  atomicity and illegal/repeated cancellation tested. Full invested refunds and
+  purchase/cancel races will be tested with the next investment increment.
