@@ -4,6 +4,8 @@
   "type": "module",
   "engines": { "node": ">=22.13" },
   "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
@@ -12,9 +14,12 @@
   },
   "dependencies": {
     "cloudinary": "^2.7.0",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "file-type": "^21.0.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.0",
     "multer": "^2.0.2",
     "zod": "^3.25.76"

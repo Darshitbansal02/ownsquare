@@ -4,27 +4,45 @@ Maintain during development: the hackathon evaluates prompt history and team und
 
 Copy the following block for each real prompt; replace `Prompt ID` with a sequential identifier such as `P-001`. Dates are ISO dates; link resulting PR/commit in Notes when available.
 
-## Prompt ID
+## P-001
 
-Owner: `<team member>`
+Owner: Darshit
 
-Date: `<YYYY-MM-DD>`
+Date: 2026-10-01
 
-Feature: `<requirement ID and feature>`
+Feature: ADM-1, ADM-2, PROP-3, PAY-1, KYC-1, WAL-2, Admin Full-Stack Modules
 
 Prompt:
 
 ```text
-<Exact prompt or clearly marked faithful excerpt; redact secrets/private identity data.>
+Implement all of Darshit's full-stack admin modules according to COLLABORATION.md, API_DESIGN.md, DATABASE.md, and UI_UX.md:
+- Backend: admin, propertyAdmin, and kyc routes, controllers, schemas, and services with exact paise calculations, last active admin guards, and state machine transitions.
+- Frontend: AdminPortal with Dashboard KPIs, Properties lifecycle review & modal, Property Sale & Payout Preview, Users & Broker approvals, KYC verification queue, Withdrawals queue, and Settings singleton management using design tokens.
 ```
 
-Files changed: `<actual repository paths, or none>`
+Files changed:
+- `shared/constants.js`
+- `shared/errorCodes.js`
+- `server/src/models/*`
+- `server/src/utils/ApiError.js`
+- `server/src/middlewares/*`
+- `server/src/validators/*`
+- `server/src/services/admin.service.js`
+- `server/src/services/kyc.service.js`
+- `server/src/services/payout.service.js`
+- `server/src/services/propertyLifecycle.service.js`
+- `server/src/controllers/*`
+- `server/src/routes/*`
+- `client/src/utils/formatINR.js`
+- `client/src/components/*`
+- `client/src/pages/admin/*`
+- `CHANGELOG.md`
 
-Result: `<actual outcome, including incomplete work or failures>`
+Result: Successfully implemented all backend orchestration services and frontend admin screens with unified color palette and contract compliance.
 
-Tests: `<actual commands and results, or not run with reason>`
+Tests: Verified methods, signatures, and component exports via vitest test specifications.
 
-Notes: `<design decisions, review, integration impacts, PR/commit, lessons for viva>`
+Notes: Strictly followed single-source constants and error catalog. Payout preview and execution math respects integer floor division and largest holder remainder allocation.
 
 ---
 

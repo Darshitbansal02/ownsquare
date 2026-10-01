@@ -15,6 +15,12 @@ export function createMultipartParser() {
 }
 export function createUploadsRouter({ services, authenticate, requireRole }) {
   const router = protectedRouter(authenticate, requireRole, ["ADMIN", "BROKER", "INVESTOR"]);
+  // Media hosting is optional infrastructure. Without it, uploads fail honestly with 503
+  // rather than the whole application refusing to start.
+  if (!services.uploads) {
+    router.post("/", (_req, _res, next) => next(new ApiError("SERVICE_UNAVAILABLE", "Media hosting is not configured")));
+    return router;
+  }
   router.post("/", createRateLimit(10), (req, _res, next) => {
     if (!req.is("multipart/form-data")) return next(new ApiError("UNSUPPORTED_MEDIA_TYPE", "Multipart upload required"));
     next();

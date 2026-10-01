@@ -2,13 +2,28 @@
   "name": "ownsquare",
   "private": true,
   "type": "module",
-  "workspaces": ["server"],
-  "engines": { "node": ">=22.13" },
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
+    "dev": "npm run dev --workspace server",
+    "start": "npm run start --workspace server",
+    "dev:client": "npm run dev --workspace client",
+    "build": "npm run build --workspace client",
     "lint": "eslint server shared",
-    "test:backend": "npm run test --workspace server"
+    "test:backend": "npm run test --workspace server",
+    "test:unit": "npm run test:unit --workspace server",
+    "test:integration": "npm run test:integration --workspace server"
   },
   "devDependencies": {
     "eslint": "^10.0.0"
+  },
+  "allowScripts": {
+    "mongodb-memory-server@10.4.3": true,
+    "esbuild@0.21.5": true
   }
 }

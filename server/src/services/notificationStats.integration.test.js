@@ -78,7 +78,8 @@ describe("recipient notifications and public aggregates", () => {
       }
     });
     expect(Object.keys(services).sort()).toEqual([
-      "investments", "ledger", "lifecycle", "notifications", "payouts", "portfolio", "publicStats", "uploads", "wallet", "withdrawals"
+      "admin", "investments", "kyc", "ledger", "lifecycle", "notifications", "payouts",
+      "portfolio", "publicStats", "uploads", "wallet", "withdrawals"
     ]);
     expect(Object.isFrozen(services)).toBe(true);
   });
