@@ -1,0 +1,14 @@
+{
+  "name": "ownsquare",
+  "private": true,
+  "type": "module",
+  "workspaces": ["server"],
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "lint": "eslint server shared",
+    "test:backend": "npm run test --workspace server"
+  },
+  "devDependencies": {
+    "eslint": "^10.0.0"
+  }
+}

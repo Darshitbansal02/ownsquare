@@ -19,3 +19,14 @@ Record real changes only. Keep feature changes small and list breaking/integrati
 - Verification: `<actual tests/build/PR evidence, or not run with reason>`
 
 Do not use templates as completed entries; preserve all genuine team additions when resolving merge conflicts.
+
+### 2026-10-01 - Dhruv: backend foundation
+
+- Added canonical models/indexes, constants/errors, database readiness, strict
+  request validation, exact integer-paise helpers and transaction boundaries.
+- Dhruv authorized narrow backend manifests/test tooling and approved the scoped
+  backend decisions recorded in [server/BACKEND_HANDOFF.md](server/BACKEND_HANDOFF.md).
+  Affected teammates still need to review; their approvals are not inferred.
+- Verification: 7 unit tests passed; lint passed; npm install audit reports no
+  vulnerabilities after updating Vitest. No deployed/authenticated API claim.
+- Branch: `feature/backend-foundation`; bootstrap/seed/auth remain owner handoffs.
