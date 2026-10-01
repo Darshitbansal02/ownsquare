@@ -1,0 +1,2 @@
+import { rateLimit } from 'express-rate-limit';
+export const authRateLimit = (env = {}) => rateLimit({windowMs:15*60*1000,limit:(env?.NODE_ENV === 'test' || process.env.NODE_ENV === 'test') ? 1000 : 30,standardHeaders:'draft-8',legacyHeaders:false,handler:(req,res)=>res.status(429).json({success:false,error:{code:'RATE_LIMITED',message:'Too many authentication attempts. Try again later.',details:[]}})});

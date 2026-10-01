@@ -1,0 +1,11 @@
+import mongoose from 'mongoose';
+import { INVESTMENT_STATUS } from '../../../shared/constants.js';
+import {z} from 'zod';
+const id=z.string().regex(/^[a-f\d]{24}$/i),money=z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),date=z.union([z.date(),z.iso.datetime()]);
+const snapshot=z.strictObject({investment:z.strictObject({_id:id,investorId:id,propertyId:id,units:money.positive(),amount:money.positive(),status:z.literal('ACTIVE'),payoutAmount:z.literal(0),ownershipPct:z.number().min(0).max(100),createdAt:date,updatedAt:date}),property:z.strictObject({_id:id,unitsSold:money,fundingPct:z.number().min(0).max(100),status:z.enum(['LIVE','FUNDED'])}),walletBalance:money});
+const schema = new mongoose.Schema({investorId:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true},propertyId:{type:mongoose.Schema.Types.ObjectId,ref:'Property',required:true},units:{type:Number,required:true,min:1,validate:Number.isSafeInteger},amount:{type:Number,required:true,min:1,validate:Number.isSafeInteger},status:{type:String,enum:Object.values(INVESTMENT_STATUS),default:INVESTMENT_STATUS.ACTIVE},payoutAmount:{type:Number,default:0,min:0,validate:Number.isSafeInteger},idempotencyKey:{type:String,required:true},requestFingerprint:{propertyId:{type:mongoose.Schema.Types.ObjectId,required:true},units:{type:Number,required:true}},responseSnapshot:{type:mongoose.Schema.Types.Mixed,required:true}},{timestamps:true,strict:'throw'});
+schema.index({investorId:1,propertyId:1,status:1});schema.index({propertyId:1,status:1});schema.index({investorId:1,idempotencyKey:1},{unique:true});
+schema.path('idempotencyKey').validate(v=>z.uuid().safeParse(v).success,'Idempotency key must be a UUID');
+schema.path('responseSnapshot').validate(v=>snapshot.safeParse(v).success,'Invalid immutable response snapshot');
+for(const field of ['investorId','propertyId','units','amount','idempotencyKey','requestFingerprint','responseSnapshot'])schema.path(field)?.immutable(true);
+export default mongoose.model('Investment',schema);

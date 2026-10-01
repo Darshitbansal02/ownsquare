@@ -1,0 +1,10 @@
+export const ROLES = Object.freeze({ ADMIN: 'ADMIN', BROKER: 'BROKER', INVESTOR: 'INVESTOR' });
+export const PROPERTY_STATUS = Object.freeze(Object.fromEntries(['DRAFT', 'PENDING_APPROVAL', 'LIVE', 'FUNDED', 'HOLDING', 'SOLD', 'REJECTED', 'CANCELLED'].map(v => [v, v])));
+export const PROPERTY_TYPES = Object.freeze(Object.fromEntries(['APARTMENT', 'VILLA', 'COMMERCIAL', 'PLOT', 'WAREHOUSE'].map(v => [v, v])));
+export const INVESTMENT_STATUS = Object.freeze({ ACTIVE: 'ACTIVE', EXITED: 'EXITED', REFUNDED: 'REFUNDED' });
+export const KYC_STATUS = Object.freeze({ NOT_SUBMITTED: 'NOT_SUBMITTED', PENDING: 'PENDING', APPROVED: 'APPROVED', REJECTED: 'REJECTED' });
+export const ENQUIRY_STATUS = Object.freeze({ OPEN: 'OPEN', CLOSED: 'CLOSED' });
+export const WITHDRAWAL_STATUS = Object.freeze({ PENDING: 'PENDING', APPROVED: 'APPROVED', REJECTED: 'REJECTED' });
+export const TRANSACTION_TYPES = Object.freeze(Object.fromEntries(['TOPUP', 'INVESTMENT', 'PAYOUT', 'REFUND', 'COMMISSION', 'WITHDRAWAL', 'FEE'].map(v => [v, v])));
+export const TRANSACTION_DIRECTIONS = Object.freeze({ CREDIT: 'CREDIT', DEBIT: 'DEBIT' });
+export const NOTIFICATION_TYPES = Object.freeze(Object.fromEntries(['PROPERTY_APPROVED', 'PROPERTY_REJECTED', 'FUNDING_COMPLETE', 'PAYOUT_CREDITED', 'KYC_APPROVED', 'KYC_REJECTED', 'WITHDRAWAL_APPROVED', 'WITHDRAWAL_REJECTED', 'ENQUIRY_REPLY'].map(v => [v, v])));

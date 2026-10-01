@@ -1,0 +1,12 @@
+import { z } from 'zod';
+import { ROLES } from '../../../shared/constants.js';
+export const password = z.string().min(8).max(72).regex(/[0-9]/,'Include a number').regex(/[^a-zA-Z0-9\s]/,'Include a symbol').refine(v=>Buffer.byteLength(v,'utf8')<=72,'Password must be at most 72 UTF-8 bytes');
+export const email = z.string().trim().toLowerCase().email().max(254);
+export const name = z.string().trim().min(2).max(100);
+export const phone = z.string().regex(/^\+?\d{10,15}$/);
+export const registerSchema = z.strictObject({name,email,phone,password,role:z.enum([ROLES.INVESTOR,ROLES.BROKER])});
+export const loginSchema = z.strictObject({email,password:z.string().min(1).max(256)});
+export const emptySchema = z.strictObject({});
+export const forgotSchema = z.strictObject({email});
+export const resetSchema = z.strictObject({password});
+export const resetParams = z.strictObject({token:z.string().regex(/^[a-f0-9]{64}$/)});

@@ -1,0 +1,18 @@
+import {z} from 'zod';
+import {PROPERTY_STATUS,PROPERTY_TYPES} from '../../../shared/constants.js';
+export const objectId = z.string().regex(/^[a-f\d]{24}$/i,'Invalid ObjectId');
+export const idParams = z.strictObject({id:objectId});
+const positiveInteger = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+export const media = z.strictObject({url:z.url().max(2000),publicId:z.string().min(1).max(300),name:z.string().trim().min(1).max(200)});
+export const draftSchema = z.strictObject({title:z.string().trim().min(3).max(150).optional(),description:z.string().trim().min(20).max(10000).optional(),type:z.enum(Object.values(PROPERTY_TYPES)).optional(),address:z.string().trim().min(1).max(300).optional(),city:z.string().trim().min(1).max(100).optional(),state:z.string().trim().min(1).max(100).optional(),pincode:z.string().regex(/^\d{6}$/).optional(),geo:z.strictObject({lat:z.number().min(-90).max(90),lng:z.number().min(-180).max(180)}).nullable().optional(),areaSqft:z.number().positive().optional(),images:z.array(media).max(30).optional(),documents:z.array(media).max(20).optional(),valuation:positiveInteger.optional(),totalUnits:positiveInteger.optional(),minUnits:positiveInteger.optional(),maxUnitsPerInvestor:positiveInteger.nullable().optional(),expectedAppreciationPct:z.number().min(0).max(100).optional(),rentalYieldPct:z.number().min(0).max(100).optional(),holdingPeriodMonths:positiveInteger.optional()});
+const nullableDraft = z.strictObject(Object.fromEntries(Object.entries(draftSchema.shape).map(([key,schema])=>[key,['images','documents'].includes(key) ? schema : schema.nullable()])));
+export const propertyCreateSchema = nullableDraft;
+export const editSchema = nullableDraft.refine(v=>Object.keys(v).length>0,'Supply at least one draft field');
+const numericQuery = (max=Number.MAX_SAFE_INTEGER,min=0) => z.string().regex(/^\d+(\.\d+)?$/).transform(Number).pipe(z.number().min(min).max(max));
+const intQuery = (max=Number.MAX_SAFE_INTEGER,min=1) => z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(min).max(max));
+export const pagination = {page:intQuery().default(1),limit:intQuery(100).default(20)};
+const sort = fields => z.enum(fields.flatMap(f=>[f,`-${f}`])).default('-createdAt');
+const search = z.string().trim().min(1).max(100).optional();
+export const publicQuery = z.strictObject({...pagination,search,city:z.string().trim().min(1).max(100).optional(),type:z.enum(Object.values(PROPERTY_TYPES)).optional(),minPrice:intQuery(Number.MAX_SAFE_INTEGER,0).optional(),maxPrice:intQuery(Number.MAX_SAFE_INTEGER,0).optional(),status:z.enum([PROPERTY_STATUS.LIVE,PROPERTY_STATUS.FUNDED]).optional(),minFundingPct:numericQuery(100).optional(),maxFundingPct:numericQuery(100).optional(),sort:sort(['createdAt','unitPrice','expectedAppreciationPct','unitsSold'])}).refine(v=>v.minPrice===undefined || v.maxPrice===undefined || v.minPrice<=v.maxPrice,'Price range is inverted').refine(v=>v.minFundingPct===undefined || v.maxFundingPct===undefined || v.minFundingPct<=v.maxFundingPct,'Funding range is inverted');
+export const brokerQuery = z.strictObject({...pagination,search,city:z.string().trim().min(1).max(100).optional(),status:z.enum(Object.values(PROPERTY_STATUS)).optional(),sort:sort(['createdAt','unitsSold','title'])});
+export const investorsQuery = z.strictObject({...pagination,sort:sort(['createdAt','units'])});

@@ -2,7 +2,10 @@
 
 **One property. Many owners.** An academic fractional real estate investment portal for Admin, Broker and Investor roles.
 
-**Current status:** contract-first documentation only. The application, dependency manifests, seed script, tests and deployments have not been built. Setup commands below are the planned scaffold contract, not commands that work yet.
+
+**Current status:** P0/P1 application modules are implemented on `features/full-stack-auth-broker` using real MongoDB/authentication and transactional financial writes. Automated financial acceptance passes. Browser and external-provider acceptance are recorded in the [continuation handoff](docs/P0_P1_IMPLEMENTATION.md). There is no deployment.
+
+Implementation boundaries and integration exports: [Auth + Broker handoff](docs/AUTH_BROKER_HANDOFF.md). Shared design decisions remain recommendations for team review; this implementation does not record other members' approval.
 
 ## Team
 
@@ -29,13 +32,13 @@ Do not interpret these placeholders as deployments.
 
 ## Tech Stack
 
-Proposed, pending team sign-off: React/Vite, React Router, TanStack Query, Tailwind/shadcn/ui, React Hook Form/Zod, Recharts; Node.js/Express, Mongoose/MongoDB Atlas replica set, bcrypt/JWT; Cloudinary; signed academic mock or Razorpay test mode. Next.js/Stripe remain source-allowed alternatives requiring coordinated contract changes.
+Implemented: React/Vite, React Router, TanStack Query, scoped CSS and accessible SVG charts; Express, Mongoose/MongoDB replica set, Zod, bcrypt/JWT, Cloudinary, optional Nodemailer and signed academic mock payments. The lockfile pins the installed dependency graph. No Tailwind/shadcn, Recharts or live gateway is claimed.
 
 ## Features
 
-**Planned P0:** three-role auth/RBAC; draft-to-sale property lifecycle; searchable marketplace/detail/calculator; atomic investments and funding commission; wallet/append-only ledger; investor portfolio; admin sale/exact payouts; broker/admin dashboards and user management.
+**Implemented P0:** three-role auth/RBAC; draft-to-sale property lifecycle; searchable marketplace/detail/calculator; atomic investments and funding commission; wallet/append-only ledger; investor portfolio; admin sale/exact payouts; broker/admin dashboards and user management.
 
-**Planned P1:** password reset, KYC/gate, cumulative ownership cap, withdrawals, enquiries and in-app notifications. P2 refresh tokens/rent/secondary market/audit/dark mode require separate extension approval. Nothing here is claimed implemented.
+**Implemented P1:** optional password reset, private dummy KYC/gate, cumulative ownership cap, reserved withdrawals, enquiries and transactional in-app notifications. Real Cloudinary and SMTP checks require operator credentials. P2 refresh rotation follows P0/P1 acceptance; rent/secondary market/audit/dark mode are separate future work.
 
 Scope/acceptance: [PRD.md](PRD.md). Primary authority: [source problem statement](docs/PS1_Fractional_Real_Estate_Investment_Portal.md).
 
@@ -49,17 +52,19 @@ Server is authoritative for all money and ownership. Integer paise, one ledger s
 
 ## Local Setup
 
-**Not runnable until scaffolding is implemented.** Chetan must replace this status with verified instructions after package scripts exist.
+Use Node 22+ compatible with the lockfile (tested Node 24.12) and a MongoDB replica set. Cloudinary is needed for media attachment/submission and the comprehensive seed; SMTP is required only when password reset is enabled.
 
 Planned prerequisites: approved Node 22+/npm, transaction-capable Atlas/local replica set, configured Cloudinary; test/mock payment configuration.
 
 ```powershell
-git clone <repository-url>
+git clone https://github.com/DevangMittal23/OwnSquare.git
 Set-Location .\OwnSquare
-Copy-Item .\client\.env.example .\client\.env
-Copy-Item .\server\.env.example .\server\.env
-# Fill local configuration and secrets.
-npm install
+if (!(Test-Path .\client\.env)) { Copy-Item .\client\.env.example .\client\.env }
+if (!(Test-Path .\server\.env)) { Copy-Item .\server\.env.example .\server\.env }
+# Set MONGO_URI, distinct generated JWT_SECRET and MOCK_PAYMENT_SECRET,
+# Cloudinary credentials and strong SEED_* passwords. SMTP is optional.
+# Set SEED_MEDIA_DIR to three owned dummy images (JPG/PNG/WebP).
+npm ci
 npm run seed --workspace server
 npm run dev --workspace server
 ```
@@ -70,17 +75,19 @@ Second terminal, repository root:
 npm run dev --workspace client
 ```
 
-Planned local URLs: frontend http://localhost:5173; backend http://localhost:5000; API `/api/v1`. See [deployment/local setup](docs/DEPLOYMENT.md) for future build/start/health contracts and failure checks.
+Local frontend http://localhost:5173; backend http://localhost:5000; API `/api/v1`. Match CLIENT_URL to the browser origin. `seed` creates eight academic accounts and eight property states with reconciling financial history. It preserves existing accounts/passwords/settings and never drops a database. `seed:auth` remains an account-only alternative. Newly registered brokers require administrator approval.
+
+Checks: `npm test`, `npm run lint`, `npm run build`. The integration suite downloads MongoDB on its first run and starts an isolated local replica set; it never uses your configured database. Test doubles cover SMTP delivery and Cloudinary transport only, not auth or MongoDB. Real-provider verification needs operator credentials. Client tokens are held in memory: reloading requires sign-in, per D2.
 
 ## Environment Variables
 
-[client/.env.example](client/.env.example) contains public API URL only. [server/.env.example](server/.env.example) documents runtime/database/JWT/CORS, Cloudinary, mock/Razorpay test keys, initial fee/cap settings, P1 gates, mail and operator-supplied seed passwords.
+[client/.env.example](client/.env.example) contains the public API URL only. [server/.env.example](server/.env.example) documents runtime/database/JWT/CORS, Cloudinary, signed mock payments, initial fee/cap settings, P1 gates, mail and seed configuration. PAYMENT_PROVIDER accepts `mock` only; unsupported adapters fail startup.
 
 Complete inventory: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Never commit filled env files or put server secrets in VITE_ variables. Empty secrets are intentional.
 
 ## Test Credentials
 
-No accounts exist yet. These are proposed fictional seed identities, not working credentials:
+Run `seed` to create these fictional identities with your operator-supplied passwords:
 
 | Role | Planned email | Password supplied by operator |
 |---|---|---|
@@ -88,7 +95,7 @@ No accounts exist yet. These are proposed fictional seed identities, not working
 | Broker | rohit@demo.com | `<SEED_BROKER_PASSWORD>` |
 | Investor | aman@demo.com | `<SEED_INVESTOR_PASSWORD>` |
 
-Seed also needs a second broker for ownership tests and at least five investors (Aman, Priya, Karan, Isha, Neha). Use strong local demo passwords; share actual academic evaluator credentials through an approved demo handoff only after seed verification, never reuse real account passwords or fabricate credentials as already provisioned.
+The full seed also creates other-broker@demo.com and investors priya@demo.com, karan@demo.com, isha@demo.com and neha@demo.com. Use strong local demo passwords; never reuse real account passwords. Existing passwords are preserved on rerun.
 
 ## API Documentation
 
@@ -96,19 +103,19 @@ Seed also needs a second broker for ownership tests and at least five investors 
 - [docs/API_EXAMPLES.md](docs/API_EXAMPLES.md): realistic illustrative JSON, integer paise, not live responses.
 - [docs/ERROR_CODES.md](docs/ERROR_CODES.md): one error catalog.
 - [docs/USER_FLOWS.md](docs/USER_FLOWS.md): lifecycle/sequences.
-- Planned Postman export: `<postman-collection-path-or-url>`; Chetan owns verification/export.
+- [Importable Postman collection](docs/OwnSquare.postman_collection.json): all 47 documented P0/P1 endpoints; set your local variables and appropriate role token.
 
 ## Seed Data
 
-Planned `npm run seed --workspace server`: >=8 properties: 2 partly funded LIVE, 1 FUNDED, 1 HOLDING, 1 SOLD, 1 PENDING_APPROVAL, 1 REJECTED, 1 DRAFT; >=5 investors and two brokers for scope testing. Historical top-ups/debits/commissions/payouts must reconcile, not just decorative statuses. Include source Noida example and loss/rounding fixtures in tests.
+`npm run seed --workspace server` creates 8 properties: 2 partly funded LIVE, 1 FUNDED, 1 HOLDING, 1 SOLD, 1 PENDING_APPROVAL, 1 REJECTED and 1 DRAFT; 5 investors, 2 brokers and 1 admin. Financial writes run through the shared ledger/services, with labelled academic seed top-ups. The source Noida example is included; loss/rounding fixtures are verified in integration tests. The repeated-seed test confirms no duplicate financial entries.
 
 No blanket DB reset; academic fixture scope only. [TESTING.md](TESTING.md) defines invariants.
 
 ## Known Limitations
 
-- Documentation only; no app, dependencies, scripts, test execution, live links or video yet.
+- Real Cloudinary public/private delivery and SMTP reset email remain unverified without operator configuration. Tests replace external transports only; real DB/auth/financial flows are exercised.
 - D1-D9 design choices await actual team approval; see [CONTRACTS.md](CONTRACTS.md).
-- P1 implementation availability must match server capabilities/UI; password-reset example is disabled until mail configuration exists.
+- All P1 capabilities follow validated server flags. Password reset defaults to disabled until SMTP is configured; KYC, withdrawals and ownership caps default to enabled.
 - No real payments, identity verification, bank transfer or guaranteed investment return.
 - P2 schema/API/security additions are not implemented/finalized.
 
@@ -123,3 +130,5 @@ Required 3-5 minute journey: broker approval/listing -> admin review -> investor
 [UI_UX.md](UI_UX.md), [TESTING.md](TESTING.md), [PROMPTS.md](PROMPTS.md), [CHANGELOG.md](CHANGELOG.md). Maintain real prompt/contribution history, PR reviews, env examples, fresh setup evidence, Postman coverage and honest limitations.
 
 **This is an academic project. No real money or securities are involved.**
+
+
