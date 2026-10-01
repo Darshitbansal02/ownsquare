@@ -300,3 +300,81 @@ Main remains unchanged; no push or merge was requested/performed.
 7. `feature/backend-uploads`
 8. `feature/backend-notifications-stats`
 9. `feature/backend-verification` — contains the complete stack and final evidence.
+
+## Integration blocker: tracked main overlap — 2026-10-01
+
+At handoff, local `main` remains `6e2d5e4`, while the already tracked `origin/main`
+is `c6a2699`, containing Darshit's merged PR #1:
+`284194c` (admin implementation), `bc25247` (client scaffold), then the merge.
+This inspection reads locally available Git objects; it is not a fresh fetch or
+a claim about the latest GitHub state. The verified stack has not been merged
+with or tested against these changes.
+
+Dhruv explicitly chose to preserve the verified branches and defer reconciliation
+to Darshit/Chetan review. The subsequent "continue" resumed this documentation
+handoff, not permission to overwrite modules, merge, rebase or push.
+Earlier "missing teammate modules" statements refer to the working feature stack;
+some admin/auth/client files now exist on tracked main, but their integration is
+not compatible or verified.
+
+### Concrete overlapping files and required decisions
+
+| Surface | Tracked main evidence | Verified stack interface / required reconciliation |
+|---|---|---|
+| Models | [models/index.js](src/models/index.js) re-exports global singleton models; overlapping User, Property, Investment, Transaction, Payout, Withdrawal and Settings files | `getModels(connection)` registers all nine canonical collections on the ready connection. Owners must agree on one registration/export strategy and check every consumer. Do not mix connections or keep duplicate schemas. |
+| Investment persistence | [Investment.js](src/models/Investment.js) has an optional unvalidated `responseSnapshot` | Preserve the required validated immutable original snapshot, UUID/fingerprint rules and idempotency index; review existing fixtures/data before applying stricter schemas. |
+| Settings persistence | [Settings.js](src/models/Settings.js) allows null fee-account reference | Seed and validate the ADMIN fee account before payouts; no missing-settings/fee-account fallback. Verify rate precision and singleton constraints across admin validators and seed. |
+| Errors | [shared/errorCodes.js](../shared/errorCodes.js) maps names to strings; [ApiError.js](src/utils/ApiError.js) takes `(status,code,message,details)` and has static helpers | This stack maps codes to HTTP statuses and uses `new ApiError(code,message,details,options?)`. Agree on the canonical JavaScript interface and update every consumer together; public JSON codes/statuses stay unchanged. |
+| Validation | [validate.js](src/middlewares/validate.js) consumes one full-request Zod schema and replaces request fields | This stack uses `{body,query,params}` schema maps, puts parsed data in `req.validated` and does not assign Express 5 query getters. Darshit must adapt owned validators/controllers or coordinate an explicit shared interface; do not silently skip validation. |
+| Shared imports | Remote services/middleware use `../../shared/...` from inside `server/src/...` | That resolves to `server/shared`, not root `shared`. Chetan must coordinate consumer imports or an approved workspace export; this stack's nested modules use `../../../shared/...`. |
+| Financial engines | [payout.service.js](src/services/payout.service.js) and [propertyLifecycle.service.js](src/services/propertyLifecycle.service.js) export class singletons and post balances/Transaction rows themselves | One agreed lifecycle/payout implementation must call the sole ledger service using the same session. No two monetary implementations or balance-writer compatibility shims. |
+| Withdrawal processing | Tracked [admin.service.js](src/services/admin.service.js), lines 377–401, changes wallet cache/version and creates a transaction directly | Darshit's admin service/controller must delegate to `services.withdrawals.process(adminId,withdrawalId,input)`, preserving reservation serialization, history and atomic event behavior. Dhruv has not edited this teammate-owned module. |
+| Authentication | Tracked `server/src/middlewares/auth.js` sets `req.user` from decoded claims and permits a signing-secret fallback; role middleware reads that context | Devang must deliver persisted current User, isActive/sessionVersion checks, current role and `_id`, with required validated secret. Do not treat tracked middleware as the verified auth interface or relax these services to accept stale identity claims. |
+| Client/tooling | Tracked main adds a separate client package/lockfile and scaffold | Chetan must reconcile the client workspace/scripts/lockfile and existing UI ownership. Backend tests do not establish client build or whole-app compatibility. |
+| Team logs | Both branches append [PROMPTS.md](../PROMPTS.md) and [CHANGELOG.md](../CHANGELOG.md) | Preserve both sets of genuine entries. Do not choose one side wholesale or fabricate review approval. |
+
+These are integration-contract observations, not a completed security review,
+approval of teammate implementations, or authorization to repair their modules.
+
+### Exact admin delegate migration matrix
+
+Darshit should receive the coordinated service set from Chetan's composition
+instead of importing an independently constructed finance singleton.
+
+| Existing tracked-main call | Verified service call |
+|---|---|
+| `propertyLifecycleService.approve(propertyId,adminId)` | `services.lifecycle.approve(adminId,propertyId)` |
+| `propertyLifecycleService.reject(propertyId,reason,adminId)` | `services.lifecycle.reject(adminId,propertyId,reason)` |
+| `propertyLifecycleService.updateStatus(propertyId,status,adminId)` | `services.lifecycle.changeStatus(adminId,propertyId,status)` |
+| `payoutService.previewPayout(propertyId,salePrice)` | `services.payouts.preview(adminId,propertyId,salePrice)` |
+| `payoutService.executePayout(propertyId,salePrice,expectedPlatformFeePct,adminId)` | `services.payouts.execute(adminId,propertyId,{salePrice,expectedPlatformFeePct})` |
+| `adminService.processWithdrawal(withdrawalId,input,adminId)` | Delegate to `services.withdrawals.process(adminId,withdrawalId,input)` |
+
+The documented HTTP methods, paths, request fields and success/error DTOs do not
+change. Argument order, dependency injection and validation ownership must be
+reconciled before mounting these adapters. KYC attachments must use
+`services.uploads.verifyAttachments(investorId,media,"kyc",session)` and commit
+enabled review events via `services.notifications.record(event,session)`.
+
+### Merge/release gate
+
+1. Darshit/Devang/Chetan review and agree on canonical models, error/validation
+   interfaces, service injection and financial write ownership.
+2. Reconcile in a separately authorized integration branch, preserving both
+   owners' work and the existing feature commits. Local main is not updated here.
+3. Validate existing data/fixtures against required schema/index constraints;
+   reconcile wallets/ledger before traffic. No destructive data/index reset.
+4. Test the combined real auth and admin adapters: invalid/inactive/revoked tokens,
+   owner/role denial, withdrawal reservations, sale/refund rollback, stale preview,
+   duplicate operations and final-unit HTTP races.
+5. Run the delivered finance suite plus Chetan's combined HTTP/E2E/client checks.
+   Only then claim integrated compatibility and prepare reviewed PRs.
+
+No merge, rebase, fetch, push, teammate-source change or GitHub comment was made
+as part of this overlap handoff.
+
+Preserved-stack rerun on 2026-10-01 at 19:22 local time:
+`npm run test:backend` passed all 65 tests in 18 files (36.07 seconds);
+`npm run lint` passed; `npm audit` reported 0 vulnerabilities; and
+`git diff --check` passed. This rerun deliberately excludes tracked-main changes
+and does not satisfy the combined integration gate.

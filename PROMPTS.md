@@ -114,3 +114,38 @@ Final command `npm run test:backend`: 65/65 tests, 18 files, 32.04 seconds;
 See [server/BACKEND_HANDOFF.md](server/BACKEND_HANDOFF.md) for actual exports,
 branch stack, approvals and missing-owner/provider/E2E handoffs. Main is untouched;
 no push, fabricated teammate approval or operational whole-app claim.
+
+## P-002 — Preserving the verified stack and documenting integration overlap
+
+Owner: Dhruv
+
+Date: 2026-10-01
+
+Prompt/approval (faithful excerpt):
+
+```text
+Preserve the verified branches and document the conflicting files/interfaces
+for Darshit/Chetan review before integration.
+Continue.
+```
+
+Result: read locally tracked `origin/main` changes from merged PR #1 without
+merging or overwriting them. Recorded overlapping models, error/validation APIs,
+service signatures, financial write ownership, auth context, shared imports,
+client tooling and append-only team log conflicts, with exact admin delegate
+mappings and a reviewed integration gate.
+
+Files changed: [server/BACKEND_HANDOFF.md](server/BACKEND_HANDOFF.md),
+[PROMPTS.md](PROMPTS.md), [CHANGELOG.md](CHANGELOG.md).
+
+Tests: documentation-only changes introduce no code behavior. Previous verified
+65-test backend evidence remains scoped to the preserved stack, not tracked main;
+any rerun is recorded separately below with its actual outcome.
+
+Notes: no fresh fetch, merge, rebase, push, teammate module edit or fabricated
+review approval. Cross-branch compatibility remains an explicit blocker.
+
+Actual continuation rerun: `npm run test:backend` passed 65 tests in 18 files
+(36.07 seconds, 19:22 local time); `npm run lint` and `git diff --check` passed;
+`npm audit` reported 0 vulnerabilities. Tracked-main changes were not merged or
+included in this verification.

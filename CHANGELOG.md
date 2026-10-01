@@ -104,3 +104,20 @@ Do not use templates as completed entries; preserve all genuine team additions w
   Main unchanged; no push/merge. Auth/bootstrap/seed/admin/property/KYC/UI,
   live Cloudinary delivery and browser/HTTP integration remain explicit handoffs.
 - Export/mount/policy/test evidence: [server/BACKEND_HANDOFF.md](server/BACKEND_HANDOFF.md).
+
+### 2026-10-01 - Dhruv: preserved-stack integration overlap handoff
+
+- Discovered already tracked `origin/main` at `c6a2699` includes Darshit's merged
+  PR #1 and overlapping backend/shared implementations, plus client scaffolding.
+  Local `main` remains `6e2d5e4`; no fresh remote state is inferred.
+- Dhruv explicitly selected preservation and documented review rather than
+  source reconciliation. Added the conflict matrix, exact admin service-call
+  migration mapping and combined integration/release gates to
+  [server/BACKEND_HANDOFF.md](server/BACKEND_HANDOFF.md).
+- No teammate code changed; no merge/rebase/push or public contract change.
+  Compatibility with tracked main is not verified and blocks integration.
+- Documentation-only update; delivered backend verification remains separately
+  scoped to the existing feature stack.
+- Continuation rerun: 65 tests in 18 files pass (36.07 seconds); lint and
+  whitespace check pass; dependency audit reports 0 vulnerabilities.
+  These results exclude the deferred tracked-main integration.
