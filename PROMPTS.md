@@ -82,3 +82,9 @@ and recipient events, plus owned investment adapters. Investment/lifecycle tests
 12/12 real replica-set tests passed, including five final-block races and injected
 debit/commission/event/refund rollback. Lint passed; authenticated HTTP/browser
 proof is still blocked by missing teammate modules.
+
+Payout increment: authoritative shared calculation, aggregate-holder and row
+remainders, guarded sale/fee posting, unique payout and atomic history updates.
+Dhruv approved preserving the existing stateless preview API and handing price
+reconfirmation to Darshit's UI rather than inventing a token contract. Seven
+focused payout tests passed (3 unit, 4 real replica-set); lint passed.

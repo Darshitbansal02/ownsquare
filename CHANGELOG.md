@@ -56,3 +56,12 @@ Do not use templates as completed entries; preserve all genuine team additions w
 - Verification: 12 investment/lifecycle replica-set tests pass, including five
   exact final-block races; lint passes. HTTP/auth/browser integration not claimed.
 - Branch: `feature/backend-investments`, stacked on lifecycle.
+
+### 2026-10-01 - Dhruv: exact sale payouts
+
+- Added shared preview/execution math, guarded one-time sales, aggregated and
+  per-row remainder allocation, fee-account credit and rollback-safe history.
+- No admin adapters taken over; sale-price reconfirmation remains the consuming
+  UI's responsibility under the explicitly approved unchanged preview contract.
+- Verification: 7 payout tests and lint pass.
+- Branch: `feature/backend-payouts`, stacked on investments.

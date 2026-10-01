@@ -119,3 +119,24 @@ replay; KYC/cap are rechecked for new purchases, not old confirmations.
   and rollback after debit, funding event/commission and refund insertion.
 - This is service-level persistence/concurrency evidence. Exact authenticated
   HTTP and two-browser-window proof still requires Devang/Chetan's integration.
+
+## Payout handoff
+
+`createPayoutService({...db,ledger,notifications})` exposes
+`preview(adminId,propertyId,salePrice)` and
+`execute(adminId,propertyId,{salePrice,expectedPlatformFeePct})`.
+Darshit owns the preview/sale HTTP adapters. Both paths use `calculatePayout`.
+Execution serializes against settings writes, guards HOLDING/version, and commits
+the unique payout, wallet credits, row allocations, ADMIN fee and SOLD together.
+Zero shares remain in DTOs but create no zero-value ledger entries.
+
+Dhruv explicitly chose to keep the existing stateless preview API unchanged:
+expectedPlatformFeePct detects fee drift; the server recomputes the submitted
+salePrice but cannot prove it matches an earlier preview without a new token.
+Darshit's UI must refresh and reconfirm when price changes. No preview-token
+contract or undocumented field has been introduced.
+
+- Payout tests: 3 calculation unit tests + 4 real replica-set tests passed; lint
+  passed. Source 1.4-crore amounts/37.2% ROI, preview with no writes, concurrent/
+  repeated sales, stale rate, loss/zero shares, exact row remainder and complete
+  rollback after a payout credit were verified.
