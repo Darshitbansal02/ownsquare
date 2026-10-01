@@ -1,0 +1,18 @@
+import React, { useEffect, useRef, useState } from 'react';
+import useAuth from '../../hooks/useAuth.js';
+import { Link } from 'react-router-dom';
+import { FeatureGate, useResource, ResourceState, Pagination, Field, Form, ErrorNotice, Notice, Status, date, enumValues, humanize } from '../auth/DevangUI.jsx';
+export default function EnquiryThreads({ propertyId }) {
+  const { api, features, user, constants, sessionKey } = useAuth(); const [page, setPage] = useState(1); const [status, setStatus] = useState('');
+  const resource = useResource(() => api.enquiries.list({ page, limit:10, sort:'-updatedAt', ...(propertyId ? {propertyId} : {}), ...(status ? {status} : {}) }),[page,propertyId,status],!!features.enquiries);
+  const [pending, setPending] = useState(null); const [error, setError] = useState(null); const [errorThread, setErrorThread] = useState(null); const [message, setMessage] = useState('');
+  const [drafts,setDrafts] = useState({}); const account = useRef(sessionKey); account.current = sessionKey;
+  useEffect(() => { account.current = sessionKey; return () => { account.current = null; }; }, [sessionKey]);
+  async function reply(event,id) {
+    event.preventDefault(); setPending(id); setError(null); setErrorThread(id); setMessage(''); const accountAtStart = account.current;
+    try { await api.enquiries.reply(id,{message:drafts[id].trim()}); if (account.current !== accountAtStart) return; setDrafts(current => ({...current,[id]:''})); setMessage('Your reply was sent.'); resource.reload(); }
+    catch(failure) { if(account.current === accountAtStart) setError(failure); }
+    finally { if(account.current === accountAtStart) setPending(null); }
+  }
+  return <FeatureGate feature="enquiries"><div className="dv-heading"><h2>Property enquiries</h2><Field label="Thread status"><select value={status} onChange={event => {setStatus(event.target.value);setPage(1);}}><option value="">All threads</option>{enumValues(constants.ENQUIRY_STATUS).map(value => <option key={value} value={value}>{humanize(value)}</option>)}</select></Field></div><ErrorNotice error={error}/>{message && <Notice>{message}</Notice>}<ResourceState resource={resource} emptyMessage={user.role==='BROKER'?'No enquiries yet. Investor questions about your listings will appear here.':'No enquiries yet. Ask a broker from a published property detail page.'}>{data => <>{data.items.map(thread => <article className="dv-panel" key={thread._id}><div className="dv-heading"><h2>Conversation {thread._id.slice(-6)}</h2><Status value={thread.status}/></div><p className="dv-small"><Link to={`/properties/${thread.propertyId}`}>View property {thread.propertyId}</Link></p><ul className="dv-message-list">{thread.messages.map((item,index) => <li key={`${item.at}-${index}`} className="dv-message"><strong>{item.from === user._id ? 'You' : 'Participant'}</strong><p>{item.text}</p><small><time dateTime={item.at}>{date(item.at)}</time></small></li>)}</ul>{thread.status === 'OPEN' ? <Form error={errorThread === thread._id ? error : null} className="dv-form" onSubmit={event => reply(event,thread._id)} style={{marginTop:24}}><Field name="message" label="Your reply"><textarea required maxLength={2000} value={drafts[thread._id] ?? ''} onChange={event => setDrafts(current => ({...current,[thread._id]:event.target.value}))} disabled={!!pending}/></Field><button className="dv-button" disabled={!!pending || !drafts[thread._id]?.trim()}>{pending === thread._id ? 'Sending…' : 'Send reply'}</button></Form> : <p className="dv-muted" style={{marginTop:24}}>This conversation is closed.</p>}</article>)}<Pagination data={data} page={page} onPage={setPage}/></>}</ResourceState></FeatureGate>;
+}

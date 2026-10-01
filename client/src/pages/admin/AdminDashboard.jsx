@@ -439,3 +439,6 @@ export function AdminDashboard({ onNavigate }) {
     </div>
   );
 }
+
+
+export default AdminDashboard;

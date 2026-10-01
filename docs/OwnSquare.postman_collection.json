@@ -1,0 +1,1116 @@
+{
+  "info": {
+    "name": "OwnSquare P0/P1 API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Set local variables; no secrets are included. Copy login accessToken to accessToken. Copy signed order proof to gateway variables. Generate one UUID per investment intent and retain it on retry."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "origin",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api/v1"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "email",
+      "value": ""
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "newPassword",
+      "value": ""
+    },
+    {
+      "key": "propertyId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "withdrawalId",
+      "value": ""
+    },
+    {
+      "key": "enquiryId",
+      "value": ""
+    },
+    {
+      "key": "notificationId",
+      "value": ""
+    },
+    {
+      "key": "resetToken",
+      "value": ""
+    },
+    {
+      "key": "idempotencyKey",
+      "value": ""
+    },
+    {
+      "key": "gatewayOrderId",
+      "value": ""
+    },
+    {
+      "key": "gatewayPaymentId",
+      "value": ""
+    },
+    {
+      "key": "mockOrderToken",
+      "value": ""
+    },
+    {
+      "key": "privateDocumentUrl",
+      "value": ""
+    },
+    {
+      "key": "privateDocumentId",
+      "value": ""
+    },
+    {
+      "key": "privateSelfieUrl",
+      "value": ""
+    },
+    {
+      "key": "privateSelfieId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "POST /auth/register",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/register",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Demo Investor\",\n  \"email\": \"{{email}}\",\n  \"phone\": \"0000000000\",\n  \"password\": \"{{password}}\",\n  \"role\": \"INVESTOR\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /auth/login",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/login",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /auth/logout",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/logout",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /auth/me",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/auth/me",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /auth/forgot-password",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/forgot-password",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /auth/reset-password/:token",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/reset-password/{{resetToken}}",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"password\": \"{{newPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /properties",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/properties",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /properties/:id",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/properties/{{propertyId}}",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /properties",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/properties",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Academic property draft\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "PATCH /properties/:id",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/properties/{{propertyId}}",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"Updated academic property description for review.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /properties/:id/submit",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/properties/{{propertyId}}/submit",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /properties/:id/approve",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/properties/{{propertyId}}/approve",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /properties/:id/reject",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/properties/{{propertyId}}/reject",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reason\": \"Please clarify the academic disclosure.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /properties/:id/status",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/properties/{{propertyId}}/status",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"HOLDING\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /properties/:id/payout-preview",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/properties/{{propertyId}}/payout-preview?salePrice=1400000000",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /properties/:id/sell",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/properties/{{propertyId}}/sell",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"salePrice\": 1400000000,\n  \"expectedPlatformFeePct\": 2\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /properties/:id/investors",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/properties/{{propertyId}}/investors",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /broker/properties",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/broker/properties",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /investments",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/investments",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotencyKey}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"propertyId\": \"{{propertyId}}\",\n  \"units\": 20\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /investments/me",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/investments/me",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /portfolio/summary",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/portfolio/summary",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /wallet",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/wallet",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /wallet/topup/order",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/wallet/topup/order",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 50000000\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /wallet/topup/verify",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/wallet/topup/verify",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"gatewayOrderId\": \"{{gatewayOrderId}}\",\n  \"gatewayPaymentId\": \"{{gatewayPaymentId}}\",\n  \"mockOrderToken\": \"{{mockOrderToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /wallet/withdraw",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/wallet/withdraw",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 10000,\n  \"bankDetails\": {\n    \"accountHolder\": \"Dummy Person\",\n    \"accountNumber\": \"0000000000\",\n    \"ifsc\": \"TEST0000000\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /transactions",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/transactions",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /admin/stats",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/admin/stats",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /admin/users",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/admin/users",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "PATCH /admin/users/:id",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/admin/users/{{userId}}",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"brokerApproved\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /kyc",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/kyc",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"docs\": [\n    {\n      \"url\": \"{{privateDocumentUrl}}\",\n      \"publicId\": \"{{privateDocumentId}}\",\n      \"name\": \"Dummy document\"\n    }\n  ],\n  \"selfie\": {\n    \"url\": \"{{privateSelfieUrl}}\",\n    \"publicId\": \"{{privateSelfieId}}\",\n    \"name\": \"Dummy selfie\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "PATCH /admin/kyc/:userId",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/admin/kyc/{{userId}}",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"APPROVED\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /admin/withdrawals",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/admin/withdrawals",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "PATCH /admin/withdrawals/:id",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/admin/withdrawals/{{withdrawalId}}",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"APPROVED\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /admin/settings",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/admin/settings",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "PATCH /admin/settings",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/admin/settings",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"platformFeePct\": 2,\n  \"brokerCommissionPct\": 1,\n  \"maxOwnershipPct\": 49\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /enquiries",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/enquiries",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"propertyId\": \"{{propertyId}}\",\n  \"message\": \"Please explain the academic property disclosure.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /enquiries",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/enquiries",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /enquiries/:id/reply",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/enquiries/{{enquiryId}}/reply",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Here is the clarification.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /notifications",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/notifications",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "PATCH /notifications/:id/read",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/notifications/{{notificationId}}/read",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "PATCH /auth/me",
+      "request": {
+        "method": "PATCH",
+        "url": "{{baseUrl}}/auth/me",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Demo User\",\n  \"phone\": \"0000000000\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /auth/change-password",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/auth/change-password",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"password\": \"{{newPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "POST /uploads",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/uploads",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "purpose",
+              "value": "property",
+              "type": "text"
+            },
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        },
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /wallet/withdrawals",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/wallet/withdrawals",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /admin/properties",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/admin/properties",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /platform/stats",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/platform/stats",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    },
+    {
+      "name": "GET /health",
+      "request": {
+        "method": "GET",
+        "url": "{{origin}}/health",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "description": "Use the correct role token. See API_DESIGN.md for filters, validation and expected errors. Only dummy data and signed academic mock payments."
+      }
+    }
+  ]
+}
