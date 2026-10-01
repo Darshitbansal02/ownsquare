@@ -31,6 +31,13 @@ export function createUploadService({ models, features, mediaAdapter }) {
   if (!mediaAdapter || !["upload", "resource", "url"].every((key) => typeof mediaAdapter[key] === "function")) {
     throw new ApiError("SERVICE_UNAVAILABLE", "Cloudinary adapter is required");
   }
+  function canonicalUrl(asset) {
+    try {
+      return media.shape.url.parse(mediaAdapter.url(asset));
+    } catch (error) {
+      throw new ApiError("SERVICE_UNAVAILABLE", "Media provider URL generation failed", [], { cause: error });
+    }
+  }
   async function upload(actorId, purpose, file) {
     if (!["property", "kyc"].includes(purpose)) throw new ApiError("VALIDATION_ERROR", "Invalid upload purpose");
     const actor = await requireActor(models, actorId, purpose === "property" ? ["ADMIN", "BROKER"] : ["INVESTOR"]);
@@ -54,10 +61,15 @@ export function createUploadService({ models, features, mediaAdapter }) {
       throw new ApiError("SERVICE_UNAVAILABLE", "Media upload failed", [], { cause: error });
     }
     if (!asset || asset.public_id !== publicId || asset.type !== (purpose === "kyc" ? "authenticated" : "upload") ||
-        asset.resource_type !== detected.resourceType || !Number.isSafeInteger(asset.version)) {
+        asset.resource_type !== detected.resourceType || !Number.isSafeInteger(asset.version) || asset.version < 1) {
       throw new ApiError("SERVICE_UNAVAILABLE", "Media provider returned an invalid asset");
     }
-    return parse(media, { url: mediaAdapter.url(asset), publicId, name });
+    const metadata = asset.context?.custom;
+    if (metadata?.ownerId !== String(actor._id) || metadata.purpose !== purpose ||
+        metadata.originalName !== name || metadata.mimeType !== detected.mime) {
+      throw new ApiError("SERVICE_UNAVAILABLE", "Media provider ownership metadata is missing");
+    }
+    return parse(media, { url: canonicalUrl(asset), publicId, name });
   }
   async function verifyAttachments(ownerId, input, purpose, session) {
     if (!["property", "kyc"].includes(purpose)) throw new ApiError("VALIDATION_ERROR", "Invalid media purpose");
@@ -90,8 +102,9 @@ export function createUploadService({ models, features, mediaAdapter }) {
       }
       if (asset.public_id !== item.publicId || asset.resource_type !== resourceType ||
           asset.type !== (purpose === "kyc" ? "authenticated" : "upload") ||
+          !Number.isSafeInteger(asset.version) || asset.version < 1 ||
           !allowed.has(metadata.mimeType) || (metadata.mimeType === "application/pdf") !== (resourceType === "raw") ||
-          metadata.originalName !== item.name || mediaAdapter.url(asset) !== item.url) {
+          metadata.originalName !== item.name || canonicalUrl(asset) !== item.url) {
         throw new ApiError("VALIDATION_ERROR", "Media does not match the approved asset");
       }
     }

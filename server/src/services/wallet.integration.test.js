@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openTestDatabase } from "../utils/testHarness.js";
 import { inTransaction } from "../utils/transaction.js";
+import { createHmac, randomUUID } from "node:crypto";
+import { createWithdrawalService } from "./withdrawal.service.js";
 
 let db;
 const bankDetails = { accountHolder: "Dummy Holder", accountNumber: "0000000000", ifsc: "TEST0000000" };
@@ -64,5 +66,59 @@ describe("real replica-set ledger and wallet", () => {
     const corrupted = await db.user();
     await db.models.User.updateOne({ _id: corrupted._id }, { $set: { walletBalance: 100 } });
     await expect(db.wallet.get(corrupted._id)).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+  it("rejects expired/currency proofs and prevents distinct payment IDs crediting one order", async () => {
+    const investor = await db.user();
+    const order = await db.wallet.order(investor._id, 100);
+    const original = JSON.parse(Buffer.from(order.checkout.mockOrderToken.split(".")[0], "base64url").toString("utf8"));
+    const proofInput = (overrides = {}) => {
+      const proof = { ...original, ...overrides };
+      const payload = Buffer.from(JSON.stringify(proof)).toString("base64url");
+      return { gatewayOrderId: proof.gatewayOrderId, gatewayPaymentId: proof.gatewayPaymentId,
+        mockOrderToken: `${payload}.${createHmac("sha256", db.payment.secret).update(payload).digest("base64url")}` };
+    };
+    await expect(db.wallet.verify(investor._id, proofInput({ expiresAt: Date.now() - 1 }))).rejects.toMatchObject({ code: "PAYMENT_VERIFICATION_FAILED" });
+    await expect(db.wallet.verify(investor._id, proofInput({ currency: "USD" }))).rejects.toMatchObject({ code: "PAYMENT_VERIFICATION_FAILED" });
+    await db.wallet.verify(investor._id, proofInput());
+    await expect(db.wallet.verify(investor._id, proofInput({ gatewayPaymentId: `mock_payment_${randomUUID()}` }))).rejects.toMatchObject({ code: "DUPLICATE_PAYMENT" });
+    await expect(db.wallet.verify(investor._id, proofInput({ gatewayOrderId: `mock_order_${randomUUID()}` }))).rejects.toMatchObject({ code: "DUPLICATE_PAYMENT" });
+    expect((await db.wallet.get(investor._id)).balance).toBe(100);
+  });
+  it("rolls withdrawal processing back after debit and preserves its reservation", async () => {
+    const investor = await db.user();
+    const admin = await db.user("ADMIN");
+    await db.credit(investor._id, 1000);
+    const pending = await db.withdrawals.request(investor._id, { amount: 700, bankDetails });
+    const beforeVersion = (await db.models.User.findById(investor._id)).walletVersion;
+    const service = createWithdrawalService({ ...db, ledger: {
+      ...db.ledger, post: async (input, session) => {
+        await db.ledger.post(input, session);
+        throw new Error("Injected withdrawal debit failure");
+      }
+    } });
+    await expect(service.process(admin._id, pending.withdrawal._id, { status: "APPROVED" })).rejects.toThrow("Injected withdrawal");
+    expect(await db.wallet.get(investor._id)).toEqual({ balance: 1000, reservedBalance: 700, availableBalance: 300 });
+    expect((await db.models.User.findById(investor._id)).walletVersion).toBe(beforeVersion);
+    expect((await db.models.Withdrawal.findById(pending.withdrawal._id)).status).toBe("PENDING");
+    expect(await db.models.Transaction.countDocuments({ userId: investor._id, type: "WITHDRAWAL" })).toBe(0);
+  });
+  it("filters ledger owners before pagination and refuses user overrides", async () => {
+    const owner = await db.user();
+    const other = await db.user();
+    const admin = await db.user("ADMIN");
+    await db.credit(owner._id, 100);
+    await db.credit(other._id, 200);
+    const query = { page: 1, limit: 20, sort: "-createdAt" };
+    const owned = await db.ledger.list(owner._id, query);
+    expect(owned.items).toHaveLength(1);
+    expect(owned.items[0].userId).toBe(String(owner._id));
+    expect(owned.items[0]).not.toHaveProperty("walletVersion");
+    expect((await db.ledger.list(owner._id, { ...query, from: owned.items[0].createdAt })).total).toBe(1);
+    expect((await db.ledger.list(owner._id, { ...query, to: owned.items[0].createdAt })).total).toBe(0);
+    await expect(db.ledger.list(owner._id, { ...query, userId: String(other._id) })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect((await db.ledger.list(admin._id, { ...query, userId: String(other._id) })).items[0].amount).toBe(200);
+    const empty = await db.ledger.list(owner._id, { ...query, page: 2 });
+    expect(empty.items).toEqual([]);
+    expect([empty.total, empty.totalPages]).toEqual([1, 1]);
   });
 });

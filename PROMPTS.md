@@ -103,3 +103,14 @@ Notifications/statistics increment: recipient-only persistence/read helpers
 (Devang still owns HTTP), truthful public aggregates/capabilities, optional-token
 public adapter and explicit service composition handoff. Four focused replica-set
 tests passed; lint and npm audit passed (zero vulnerabilities).
+
+Final verification increment: exercised the full source crore-sale through actual
+transactions and checked all wallet payouts/commission/fee conservation; added
+payment expiry/currency/duplicate-order/payment proofs, withdrawal rollback,
+owner-filtered ledger pagination, safe new-User serialization, exact UTC bounds,
+standalone/missing-settings/closed-database refusal and sanitized 503 handling.
+Final command `npm run test:backend`: 65/65 tests, 18 files, 32.04 seconds;
+`npm run lint`, `npm audit` (0 vulnerabilities) and `git diff --check` passed.
+See [server/BACKEND_HANDOFF.md](server/BACKEND_HANDOFF.md) for actual exports,
+branch stack, approvals and missing-owner/provider/E2E handoffs. Main is untouched;
+no push, fabricated teammate approval or operational whole-app claim.

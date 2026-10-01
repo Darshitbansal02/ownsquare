@@ -81,4 +81,13 @@ describe("upload ownership/lifecycle with external-provider fixture", () => {
     const admin = await db.user("ADMIN");
     await expect(uploads.upload(admin._id, "property", file)).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE", message: "Media upload failed" });
   });
+  it("classifies malformed provider URLs as dependency errors, not client validation failures", async () => {
+    const adapter = providerFixture();
+    adapter.url = () => "invalid-provider-url";
+    const uploads = createUploadService({ ...db, mediaAdapter: adapter });
+    const admin = await db.user("ADMIN");
+    await expect(uploads.upload(admin._id, "property", file)).rejects.toMatchObject({
+      code: "SERVICE_UNAVAILABLE", status: 503, message: "Media provider URL generation failed"
+    });
+  });
 });

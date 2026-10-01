@@ -55,8 +55,12 @@ export function createLedgerService({ models }) {
     if (!cause || cause[0] !== direction || cause[1] !== refType || typeof refId !== "string" || !refId) {
       throw new ApiError("VALIDATION_ERROR", "Invalid ledger cause");
     }
+    if (type !== "TOPUP" && !/^[0-9a-f]{24}$/i.test(refId)) {
+      throw new ApiError("VALIDATION_ERROR", "Domain ledger references must be ObjectIds");
+    }
     if (type === "TOPUP") {
-      if (!gatewayOrderId || !gatewayPaymentId || gatewayOrderId !== refId) throw new ApiError("VALIDATION_ERROR", "Top-up identifiers are required");
+      if (typeof gatewayOrderId !== "string" || typeof gatewayPaymentId !== "string" ||
+          !gatewayOrderId || !gatewayPaymentId || gatewayOrderId !== refId) throw new ApiError("VALIDATION_ERROR", "Top-up identifiers are required");
     } else if (gatewayOrderId !== undefined || gatewayPaymentId !== undefined) {
       throw new ApiError("VALIDATION_ERROR", "Gateway identifiers are top-up only");
     }

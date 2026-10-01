@@ -3,6 +3,13 @@ export const iso = (value) => value === null || value === undefined ? null : new
 const pick = (row, fields) => Object.fromEntries(fields.map((field) => [field, row[field] ?? null]));
 export const mediaDTO = (row) => pick(row, ["url", "publicId", "name"]);
 
+export function userDTO(row) {
+  return {
+    _id: id(row._id), ...pick(row, ["name", "email", "phone", "role", "isActive", "brokerApproved"]),
+    kyc: pick(row.kyc, ["status", "reason"]), createdAt: iso(row.createdAt), updatedAt: iso(row.updatedAt)
+  };
+}
+
 export function investmentDTO(row, totalUnits) {
   return {
     _id: id(row._id), investorId: id(row.investorId), propertyId: id(row.propertyId),

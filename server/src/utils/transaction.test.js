@@ -8,7 +8,7 @@ function driverFixture() {
     startTransaction: vi.fn(), commitTransaction: vi.fn(), abortTransaction: vi.fn(),
     endSession: vi.fn(), inTransaction: () => true
   };
-  return { session, connection: { startSession: async () => session } };
+  return { session, connection: { readyState: 1, startSession: async () => session } };
 }
 const labelled = (label) => Object.assign(new Error(label), { hasErrorLabel: (value) => value === label });
 

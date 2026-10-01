@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { allocate, basisPoints, multiply, percentageFloor, sum, unitPrice } from "./money.js";
-import { empty, listQuery, positiveInteger } from "../validators/common.schema.js";
+import { dateFilters, empty, listQuery, positiveInteger } from "../validators/common.schema.js";
 
 describe("exact paise helpers", () => {
   it("matches source values with exact intermediates", () => {
@@ -35,5 +35,10 @@ describe("strict request primitives", () => {
     for (const input of [{ page: "0" }, { limit: "101" }, { sort: "passwordHash" }, { page: String(Number.MAX_SAFE_INTEGER) }]) {
       expect(query.safeParse(input).success).toBe(false);
     }
+  });
+  it("compares UTC date instants rather than ISO strings with different precision", () => {
+    const query = listQuery(["createdAt"], dateFilters);
+    expect(query.safeParse({ from: "2026-10-01T00:00:00Z", to: "2026-10-01T00:00:00.100Z" }).success).toBe(true);
+    expect(query.safeParse({ from: "2026-10-01T00:00:00.100Z", to: "2026-10-01T00:00:00Z" }).success).toBe(false);
   });
 });

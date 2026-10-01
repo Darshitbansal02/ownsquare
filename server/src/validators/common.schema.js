@@ -20,7 +20,9 @@ export function listQuery(sortFields, filters = {}) {
     sort: z.enum(sorts).default("-createdAt"),
     ...filters
   }).strict().superRefine((value, ctx) => {
-    if (value.from && value.to && value.from >= value.to) ctx.addIssue({ code: "custom", path: ["to"], message: "Must be after from" });
+    if (value.from && value.to && new Date(value.from).getTime() >= new Date(value.to).getTime()) {
+      ctx.addIssue({ code: "custom", path: ["to"], message: "Must be after from" });
+    }
     if (!Number.isSafeInteger((value.page - 1) * value.limit)) ctx.addIssue({ code: "custom", path: ["page"], message: "Page offset exceeds safe range" });
   });
 }

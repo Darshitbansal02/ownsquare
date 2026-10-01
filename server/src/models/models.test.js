@@ -26,4 +26,15 @@ describe("canonical models", () => {
     await expect(new models.User({ ...user, walletBalance: -1 }).validate()).rejects.toThrow();
     await expect(new models.Notification({ userId: new mongoose.Types.ObjectId(), type: "PAYOUT_CREDITED", title: "Payout", body: "Done", link: "//external.example" }).validate()).rejects.toThrow();
   });
+  it("never serializes newly created password hashes or internal account fields", () => {
+    const user = new models.User({
+      name: "Fixture User", email: "fixture@example.test", phone: "9999999999",
+      passwordHash: "private-test-hash", resetTokenHash: "private-test-reset", role: "INVESTOR"
+    });
+    expect(Object.keys(user.toJSON()).sort()).toEqual([
+      "_id", "brokerApproved", "createdAt", "email", "isActive", "kyc", "name", "phone", "role", "updatedAt"
+    ]);
+    expect(JSON.stringify(user)).not.toContain("private-test");
+    expect(user.toJSON().kyc).toEqual({ status: "NOT_SUBMITTED", reason: null });
+  });
 });

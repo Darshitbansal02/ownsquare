@@ -89,3 +89,18 @@ Do not use templates as completed entries; preserve all genuine team additions w
 - Notification HTTP and actual app/auth composition remain teammate handoffs.
 - Verification: 4 real replica-set tests, lint and dependency audit pass.
 - Branch: `feature/backend-notifications-stats`, stacked on uploads.
+
+### 2026-10-01 - Dhruv: final financial verification and handoff
+
+- Strengthened domain ledger reference checks, private new-User JSON, ADMIN
+  withdrawal defaults, provider-output classification, UTC range comparison and
+  explicit disconnected-database handling.
+- Added actual crore-sale/commission/payout/ROI proof, payment reuse/expiry,
+  withdrawal rollback, ledger scoping and database-readiness regressions.
+- Verification: full backend suite passes 65 tests in 18 files (26 unit/adapter,
+  39 database integration); lint and diff check pass; dependency audit reports 0
+  vulnerabilities. No server transpile/TS or frontend build is available.
+- Branch: `feature/backend-verification`, contains the complete verified stack.
+  Main unchanged; no push/merge. Auth/bootstrap/seed/admin/property/KYC/UI,
+  live Cloudinary delivery and browser/HTTP integration remain explicit handoffs.
+- Export/mount/policy/test evidence: [server/BACKEND_HANDOFF.md](server/BACKEND_HANDOFF.md).

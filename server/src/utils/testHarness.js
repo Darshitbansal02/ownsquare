@@ -12,12 +12,19 @@ import { inTransaction } from "./transaction.js";
 export async function openTestDatabase() {
   const replica = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: "wiredTiger" } });
   const databaseName = `ownsquare_test_${randomUUID().replaceAll("-", "")}`;
-  const db = await connectDatabase(replica.getUri(databaseName));
+  let db;
+  try {
+    db = await connectDatabase(replica.getUri(databaseName));
+  } catch (error) {
+    await replica.stop();
+    throw error;
+  }
   const features = { kyc: true, withdrawals: true, enquiries: true, notifications: true, passwordReset: false, ownershipCap: true };
-  const context = { ...db, features };
+  const payment = { provider: "mock", secret: randomUUID() };
+  const context = { ...db, features, payment };
   const ledger = createLedgerService(context);
   const notifications = createNotificationService(context);
-  const wallet = createWalletService({ ...context, ledger, payment: { provider: "mock", secret: randomUUID() } });
+  const wallet = createWalletService({ ...context, ledger });
   const withdrawals = createWithdrawalService({ ...context, ledger, notifications });
   const investments = createInvestmentService({ ...context, ledger, notifications });
   const lifecycle = createPropertyLifecycleService({ ...context, ledger, notifications });

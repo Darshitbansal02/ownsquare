@@ -27,4 +27,13 @@ describe("error and strict request envelopes (no protected endpoints)", () => {
     expect(result.body).toEqual({ success: false, error: { code: "INTERNAL_ERROR", message: "Unexpected server error", details: [] } });
     expect(JSON.stringify(logger.error.mock.calls)).not.toContain("secret-provider-token");
   });
+  it("maps unavailable database dependencies to a sanitized 503", async () => {
+    const app = express();
+    app.get("/unavailable", () => { throw Object.assign(new Error("private-connection-string"), { name: "MongoNetworkError" }); });
+    app.use(createErrorHandler({ error: vi.fn() }));
+    const result = await request(app).get("/unavailable");
+    expect(result.status).toBe(503);
+    expect(result.body.error).toEqual({ code: "SERVICE_UNAVAILABLE", message: "Database operation unavailable", details: [] });
+    expect(JSON.stringify(result.body)).not.toContain("private-connection-string");
+  });
 });

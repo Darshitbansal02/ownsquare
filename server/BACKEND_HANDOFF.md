@@ -206,3 +206,97 @@ seed records or supply authentication.
   `npm audit` passed (0 vulnerabilities). Tested recipient filtering, repeated
   mark-read, event rollback, disabled flags, ACTIVE/EXITED principal versus refunds,
   active investor counts and explicit configuration/composition.
+
+## Final verification — 2026-10-01
+
+Environment: Windows, Node 24.20.0, npm 12.1.0, Vitest 5.0.3,
+isolated MongoDB 7.0.24 replica sets with real sessions/indexes.
+
+| Command | Actual result |
+|---|---|
+| `npm run test:backend` | 65 tests passed in 18 files (26 unit/adapter, 39 database integration); final run 32.04 seconds |
+| `npm run lint` | Passed |
+| `npm audit` | 0 vulnerabilities |
+| `git diff --check` | Passed |
+
+Final verification strengthened ledger references, new-User JSON privacy,
+ADMIN withdrawal queue defaults, provider-output error classification and DB
+readiness failures. Date ranges compare instants, not differently precise ISO
+strings; ledger `from` inclusive / `to` exclusive boundaries are tested.
+Database tests reject standalone MongoDB, missing Settings and closed connections
+without defaults/nontransactional writes. Driver dependency failures use safe 503
+envelopes rather than success-shaped fallbacks.
+
+The full source sale was executed through real investments/acquisition/payouts:
+valuation 1,000,000,000 paise, 1,000 units, commission 10,000,000;
+sale 1,400,000,000, fee 28,000,000, investor distribution 1,372,000,000.
+Aman's actual wallet payout is 27,440,000 and portfolio ROI is 37.2%.
+Ledger payout+fee entries sum exactly to the sale price.
+
+Additional proof covers expiry/currency/owner/signature checks, duplicate order
+and payment IDs, withdrawal-debit rollback with reservation/version preservation,
+owner-first pagination, userId override refusal, and 201/200 envelope mapping.
+Unit driver/controller doubles test policy/transport only, not authentication.
+Media tests use an explicitly documented external-provider double; monetary
+tests use neither a fake database nor fake ledger/payouts.
+
+No server build/transpile or TypeScript script exists for this approved JavaScript
+scope. Lint and runnable module tests are the actual checks; frontend build,
+authenticated HTTP, browser demo, deployment and fresh application startup are
+not claimed. The MongoDB binary is a reusable dependency cache, not committed;
+each test's isolated replica set/data directory is stopped/cleaned by its harness.
+
+## Route mounting matrix for Chetan
+
+| Factory | Mount prefix | Owned paths |
+|---|---|---|
+| `createInvestmentsRouter` | `/api/v1/investments` | POST `/`, GET `/me` |
+| `createWalletRouter` | `/api/v1/wallet` | GET `/`, POST `/topup/order`, POST `/topup/verify`, POST `/withdraw`, GET `/withdrawals` |
+| `createPortfolioRouter` | `/api/v1/portfolio` | GET `/summary` |
+| `createTransactionsRouter` | `/api/v1/transactions` | GET `/` |
+| `createUploadsRouter` | `/api/v1/uploads` | POST `/` |
+| `createPublicStatsRouter` | `/api/v1/platform` | GET `/stats` |
+
+Factories accept `{services,authenticate,requireRole}`; public stats requires
+`{services,authenticate}`. Mount the central error handler last. Express 5 handles
+async controller rejection. No competing admin/property/notification route was
+created. No JWT/auth placeholder, app/bootstrap, frontend or seed was created.
+
+## Required teammate integration / remaining blockers
+
+| Owner | Required next work |
+|---|---|
+| Chetan | Validate env; map explicit feature booleans and mock provider/secret; initialize DB/indexes; compose real auth/routes/error/CORS/helmet/health; seed Settings/ADMIN fee account and coherent ledger fixtures; update repository setup/status docs and client workspace; run authenticated HTTP/E2E |
+| Devang | Persisted `req.user`, active/sessionVersion auth and `requireRole(...roles)`; auth/profile endpoints; draft/public property CRUD and historical-investment/version immutability guards; submission delegate; notification/enquiry adapters and event calls |
+| Darshit | Settings/users/KYC/admin adapters; ADMIN fee-account and incompatible-role/last-admin restrictions; delegate acquisition/refunds/sale/withdrawal processing; private KYC DTOs and media verification; reconfirm price changes in sale UI |
+| Deepti | Use server DTOs/flags, keep UUID for same confirmation retries, show authoritative shortfalls, clearly label mock money and distinguish estimate/sale/refund values |
+| Affected reviewers | Review shared schemas/enums/errors and approved policy details before merge; approvals recorded here are Dhruv's only |
+
+Feature configuration mapping: `KYC_ENABLED -> kyc`,
+`WITHDRAWALS_ENABLED -> withdrawals`, `ENQUIRIES_ENABLED -> enquiries`,
+`NOTIFICATIONS_ENABLED -> notifications`, `PASSWORD_RESET_ENABLED -> passwordReset`,
+`OWNERSHIP_CAP_ENABLED -> ownershipCap`. All are explicit booleans.
+`PAYMENT_PROVIDER` must be `mock` for this increment and `MOCK_PAYMENT_SECRET`
+must be a separately generated strong secret. Cloudinary credentials remain
+server-side. No new env variable or changed transport/schema field is required.
+
+Not implemented by this scope: Razorpay adapter, real bank transfers, auth,
+KYC/admin/property CRUD HTTP modules, frontend, seeds, email, P2 features or
+abandoned-media cleanup policy. Exact edit-versus-first-purchase and authenticated
+two-browser race proof require the missing owner modules. Service-side inventory,
+wallet, cap, cancellation and payout races are verified.
+
+## Stacked branch delivery
+
+Each row's PR base should be its predecessor, not a duplicate giant diff to main.
+Main remains unchanged; no push or merge was requested/performed.
+
+1. `feature/backend-foundation`
+2. `feature/backend-ledger-wallet`
+3. `feature/backend-lifecycle-refunds`
+4. `feature/backend-investments`
+5. `feature/backend-payouts`
+6. `feature/backend-portfolio`
+7. `feature/backend-uploads`
+8. `feature/backend-notifications-stats`
+9. `feature/backend-verification` — contains the complete stack and final evidence.

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { KYC_STATUS, ROLES } from "../../../shared/constants.js";
 import { count, enumField, mediaSchema, options, ref, text } from "./helpers.js";
+import { userDTO } from "../utils/dto.js";
 
 const kyc = new mongoose.Schema({
   status: enumField(KYC_STATUS, KYC_STATUS.NOT_SUBMITTED),
@@ -21,6 +22,7 @@ export const userSchema = new mongoose.Schema({
   resetTokenHash: { type: String, default: null, select: false },
   resetTokenExpiresAt: { type: Date, default: null, select: false }
 }, options);
+userSchema.set("toJSON", { transform: (document) => userDTO(document) });
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ role: 1, isActive: 1 });
 userSchema.index({ "kyc.status": 1, createdAt: 1 });

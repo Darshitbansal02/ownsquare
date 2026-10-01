@@ -54,9 +54,10 @@ export function createWithdrawalService({ connection, models, ledger, notificati
   async function list(actorId, query, admin = false) {
     requireFeature(features, "withdrawals");
     await requireActor(models, actorId, [admin ? "ADMIN" : "INVESTOR"]);
+    const status = query.status ?? (admin ? "PENDING" : undefined);
     return pageOf(models.Withdrawal, {
       ...(admin ? query.userId ? { userId: query.userId } : {} : { userId: actorId }),
-      ...(query.status ? { status: query.status } : {}), ...dateRange(query)
+      ...(status ? { status } : {}), ...dateRange(query)
     }, query, withdrawalDTO);
   }
   return { request, process, list };
