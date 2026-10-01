@@ -7,13 +7,17 @@ const models = getModels(connection);
 afterAll(() => connection.close());
 
 describe("canonical models", () => {
-  it("registers exactly nine collections with required uniqueness and no reset TTL", () => {
-    expect(Object.keys(models)).toHaveLength(9);
+  it("registers the nine canonical collections plus the refresh-token store", () => {
+    // The ninth canonical collections are unchanged. RefreshToken is the AUTH-4 (P2) addition
+    // and carries its own TTL so expired sessions expire without touching a user document.
+    expect(Object.keys(models)).toHaveLength(10);
     const indexes = models.Transaction.schema.indexes();
     expect(indexes.filter(([, options]) => options.unique)).toHaveLength(4);
     expect(indexes.some(([fields, options]) => fields.gatewayOrderId && options.partialFilterExpression)).toBe(true);
     expect(models.User.schema.indexes().some(([, options]) => options.expireAfterSeconds !== undefined)).toBe(false);
     expect(models.Payout.schema.indexes().some(([fields, options]) => fields.propertyId && options.unique)).toBe(true);
+    // The TTL must live on the token collection only, never on a user or financial record.
+    expect(models.RefreshToken.schema.indexes().some(([, options]) => options.expireAfterSeconds === 0)).toBe(true);
   });
   it("supports empty drafts but rejects invalid supplied financials", async () => {
     const createdBy = new mongoose.Types.ObjectId();

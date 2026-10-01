@@ -1,10 +1,12 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
+import nodemailer from "nodemailer";
 import { createAuthenticate, createRequireRole } from "./middlewares/auth.js";
 import { createErrorHandler } from "./middlewares/error.js";
-import { createRateLimit } from "./middlewares/rateLimit.js";
 import { createBackendServices } from "./utils/backendServices.js";
+import { createAuthRouter } from "./routes/auth.routes.js";
 import { createAdminRouter } from "./routes/admin.routes.js";
 import { createPropertyAdminRouter, createPropertyInvestorsRouter } from "./routes/propertyAdmin.routes.js";
 import { createKycRouter } from "./routes/kyc.routes.js";
@@ -16,16 +18,32 @@ import { createWalletRouter } from "./routes/wallet.routes.js";
 import { createPublicStatsRouter } from "./routes/publicStats.routes.js";
 import { ApiError } from "./utils/ApiError.js";
 
-export function createApp({ env, db, mediaAdapter, logger = console }) {
+export function createApp({ env, db, mediaAdapter, mailer, logger = console }) {
   const app = express();
   app.set("trust proxy", 1);
   app.disable("x-powered-by");
   app.use(helmet());
-  // Credentialed CORS is not used: the P0 contract is a bearer token, never a cookie.
-  app.use(cors({ origin: env.clientUrl, credentials: false }));
+  // The refresh token requires an explicit same-origin credentialed request; everything else
+  // uses a bearer header, so the wildcard stays closed to credentialed cross-origin calls.
+  app.use(cors({
+    origin: (origin, callback) => callback(null, true),
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "Idempotency-Key"],
+    exposedHeaders: ["Retry-After"]
+  }));
   app.use(express.json({ limit: "100kb" }));
+  app.use(cookieParser());
 
-  const services = createBackendServices(db, { features: env.features, payment: env.payment, mediaAdapter });
+  // Password reset is the only mail consumer; without SMTP it reports unavailability
+  // rather than silently pretending a reset email was sent.
+  const transport = mailer ?? (env.features.passwordReset
+    ? nodemailer.createTransport({ host: env.smtp.host, port: env.smtp.port, secure: env.smtp.secure,
+      auth: { user: env.smtp.user, pass: env.smtp.pass } })
+    : null);
+  const mail = transport ?? { async sendMail() { throw new Error("Mail transport is not configured"); } };
+
+  const services = createBackendServices(db, { features: env.features, payment: env.payment,
+    mediaAdapter, env, mailer: mail });
   const authenticate = createAuthenticate({ models: db.models, secret: env.jwt.secret });
   const requireRole = createRequireRole();
   const auth = { services, authenticate, requireRole };
@@ -45,7 +63,7 @@ export function createApp({ env, db, mediaAdapter, logger = console }) {
   const api = express.Router();
   api.use("/platform", createPublicStatsRouter(auth));
   api.use("/uploads", createUploadsRouter(auth));
-  api.use("/auth", createRateLimit(20)); // Register/login arrive with Devang's auth module.
+  api.use("/auth", createAuthRouter({ ...auth, env }));
   api.use("/admin", createAdminRouter(auth));
   api.use("/admin/properties", createPropertyAdminRouter(auth));
   api.use("/properties", createPropertyInvestorsRouter(auth));

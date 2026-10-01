@@ -7,6 +7,7 @@ import { withdrawalSchema } from "./Withdrawal.js";
 import { enquirySchema } from "./Enquiry.js";
 import { notificationSchema } from "./Notification.js";
 import { settingsSchema } from "./Settings.js";
+import { refreshTokenSchema } from "./RefreshToken.js";
 
 export function getModels(connection) {
   return Object.fromEntries([
@@ -14,7 +15,7 @@ export function getModels(connection) {
     ["Investment", investmentSchema, "investments"], ["Transaction", transactionSchema, "transactions"],
     ["Payout", payoutSchema, "payouts"], ["Withdrawal", withdrawalSchema, "withdrawals"],
     ["Enquiry", enquirySchema, "enquiries"], ["Notification", notificationSchema, "notifications"],
-    ["Settings", settingsSchema, "settings"]
+    ["Settings", settingsSchema, "settings"], ["RefreshToken", refreshTokenSchema, "refreshtokens"]
   ].map(([name, schema, collection]) => [
     name, connection.models[name] || connection.model(name, schema, collection)
   ]));

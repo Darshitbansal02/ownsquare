@@ -78,7 +78,7 @@ describe("recipient notifications and public aggregates", () => {
       }
     });
     expect(Object.keys(services).sort()).toEqual([
-      "admin", "investments", "kyc", "ledger", "lifecycle", "notifications", "payouts",
+      "admin", "auth", "investments", "kyc", "ledger", "lifecycle", "notifications", "payouts",
       "portfolio", "publicStats", "uploads", "wallet", "withdrawals"
     ]);
     expect(Object.isFrozen(services)).toBe(true);

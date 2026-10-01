@@ -10,8 +10,9 @@ import { createNotificationService } from "../services/notification.service.js";
 import { createPublicStatsService, validatedFeatures } from "../services/publicStats.service.js";
 import { createAdminService } from "../services/admin.service.js";
 import { createKycService } from "../services/kyc.service.js";
+import { createAuthService } from "../services/auth.service.js";
 
-export function createBackendServices(db, { features, payment, mediaAdapter }) {
+export function createBackendServices(db, { features, payment, mediaAdapter, env, mailer }) {
   const context = { ...db, features: validatedFeatures(features), payment, mediaAdapter };
   const ledger = createLedgerService(context);
   const notifications = createNotificationService(context);
@@ -30,6 +31,7 @@ export function createBackendServices(db, { features, payment, mediaAdapter }) {
     // Admin HTTP orchestration delegates all money and state transitions to the owners above.
     admin: createAdminService({ ...financial, withdrawals }),
     kyc: createKycService(financial),
+    auth: createAuthService({ ...financial, env, mailer }),
     publicStats: createPublicStatsService({ ...financial, paymentProvider: payment?.provider })
   });
 }
