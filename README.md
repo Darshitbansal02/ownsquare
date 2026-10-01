@@ -77,7 +77,7 @@ Second terminal, repository root:
 npm run dev:client
 ```
 
-Frontend http://localhost:5173, backend http://localhost:5000, API under `/api/v1`. `CLIENT_URL` must match the browser origin exactly.
+Frontend = https://ownsquare.vercel.app/ , backend = https://ownsquare.onrender.com/ , API under `/api/v1`. `CLIENT_URL` must match the browser origin exactly.
 
 Cloudinary is optional: without it, uploads return `503` and property publication refuses unverified media, while every other route keeps working. SMTP is required only to enable password reset.
 
