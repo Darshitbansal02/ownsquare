@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import useAuth from '../../hooks/useAuth.js';
 import { InvestorLayout } from '../../layouts/InvestorLayout.jsx';
 import { InvestorDashboard } from './InvestorDashboard.jsx';
 import { EnquiriesScreen, HoldingDetailScreen, KycScreen, MarketplaceScreen, PortfolioScreen, PropertyDetailScreen, WalletScreen } from './InvestorScreens.jsx';
@@ -25,14 +27,70 @@ const initialEnquiries = [
 ];
 
 export function InvestorPortal({ onViewSwitch, currentView = 'investor' }) {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { api, user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const validTabs = ['dashboard', 'portfolio', 'marketplace', 'wallet', 'kyc', 'enquiries'];
+  const pathSegment = location.pathname.replace(/^\/investor\/?/, '').split('/')[0];
+  const initialTab = validTabs.includes(pathSegment) ? pathSegment : 'dashboard';
+
+  const [activeTab, setActiveTabState] = useState(initialTab);
   const [walletBalance, setWalletBalance] = useState(20500000);
-  const [kycStatus] = useState('APPROVED');
+  const [kycStatus, setKycStatus] = useState(user?.kyc?.status || 'APPROVED');
   const [transactions, setTransactions] = useState(initialTransactions);
+  const [properties, setProperties] = useState(propertyFixtures);
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [selectedHolding, setSelectedHolding] = useState(null);
   const [selectedEnquiryId, setSelectedEnquiryId] = useState('enq-1');
   const [enquiries, setEnquiries] = useState(initialEnquiries);
+
+  useEffect(() => {
+    const segment = location.pathname.replace(/^\/investor\/?/, '').split('/')[0];
+    if (validTabs.includes(segment) && segment !== activeTab) {
+      setActiveTabState(segment);
+    } else if (!segment && activeTab !== 'dashboard') {
+      setActiveTabState('dashboard');
+    }
+  }, [location.pathname]);
+
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    if (validTabs.includes(tab)) {
+      navigate(tab === 'dashboard' ? '/investor' : `/investor/${tab}`);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    if (!api) return;
+
+    if (api.wallet) {
+      api.wallet.get().then((res) => {
+        if (active && res) setWalletBalance(res.availableBalance ?? res.balance);
+      }).catch(() => {});
+    }
+
+    if (api.transactions) {
+      api.transactions.list({ limit: 10 }).then((res) => {
+        if (active && res?.items?.length) setTransactions(res.items);
+      }).catch(() => {});
+    }
+
+    if (api.properties) {
+      api.properties.list({ status: 'LIVE', limit: 10 }).then((res) => {
+        if (active && res?.items?.length) setProperties(res.items);
+      }).catch(() => {});
+    }
+
+    if (api.enquiries) {
+      api.enquiries.list().then((res) => {
+        if (active && res?.items?.length) setEnquiries(res.items);
+      }).catch(() => {});
+    }
+
+    return () => { active = false; };
+  }, [api]);
 
   const handleQuickTopUp = () => {
     setActiveTab('wallet');
@@ -43,20 +101,68 @@ export function InvestorPortal({ onViewSwitch, currentView = 'investor' }) {
     setActiveTab('investment-confirm');
   };
 
-  const handleWalletAction = (action, amount) => {
+  const handleWalletAction = async (action, amount) => {
     if (action === 'NavigateMarketplace') { setActiveTab('marketplace'); return; }
     if (action === 'Deposit') {
+      try {
+        if (api?.wallet) {
+          const order = await api.wallet.order({ amount });
+          await api.wallet.verify({
+            gatewayOrderId: order.gatewayOrderId,
+            gatewayPaymentId: 'mock_pay_' + Date.now(),
+            signature: order.signature
+          });
+          const updated = await api.wallet.get();
+          setWalletBalance(updated.availableBalance ?? updated.balance);
+          const txs = await api.transactions.list({ limit: 10 });
+          if (txs?.items) setTransactions(txs.items);
+          return;
+        }
+      } catch {
+        // Fall back to local simulation
+      }
       setWalletBalance((balance) => balance + amount);
       setTransactions((items) => [{ _id: `tx-${Date.now()}`, type: 'TOPUP', label: 'Wallet deposit', direction: 'CREDIT', amount, balanceAfter: walletBalance + amount, refId: 'Demo deposit', createdAt: new Date().toISOString(), status: 'Completed' }, ...items]);
     } else if (action === 'Withdrawal' && amount <= walletBalance) {
+      try {
+        if (api?.wallet) {
+          await api.wallet.withdraw({
+            amount,
+            bankDetails: { accountHolder: user?.name || 'Investor', accountNumber: '123456789012', ifsc: 'HDFC0001234' }
+          });
+          const updated = await api.wallet.get();
+          setWalletBalance(updated.availableBalance ?? updated.balance);
+          const txs = await api.transactions.list({ limit: 10 });
+          if (txs?.items) setTransactions(txs.items);
+          return;
+        }
+      } catch {
+        // Fall back to local simulation
+      }
       setWalletBalance((balance) => balance - amount);
       setTransactions((items) => [{ _id: `tx-${Date.now()}`, type: 'WITHDRAWAL', label: 'Wallet withdrawal', direction: 'DEBIT', amount, balanceAfter: walletBalance - amount, refId: 'Demo withdrawal', createdAt: new Date().toISOString(), status: 'Completed' }, ...items]);
     }
   };
 
-  const submitInvestment = () => {
+  const submitInvestment = async () => {
     const amount = selectedProperty?.investmentAmount || selectedProperty?.unitPrice || 0;
     if (amount <= 0 || amount > walletBalance) return;
+    const units = Math.max(1, Math.round(amount / (selectedProperty.unitPrice || 1000000)));
+    try {
+      if (api?.investments && selectedProperty._id) {
+        const idempotencyKey = crypto.randomUUID();
+        await api.investments.create({ propertyId: selectedProperty._id, units }, idempotencyKey);
+        const updated = await api.wallet.get();
+        setWalletBalance(updated.availableBalance ?? updated.balance);
+        const txs = await api.transactions.list({ limit: 10 });
+        if (txs?.items) setTransactions(txs.items);
+        setActiveTab('portfolio');
+        setSelectedProperty(null);
+        return;
+      }
+    } catch {
+      // Fall back to local simulation
+    }
     const remaining = walletBalance - amount;
     setWalletBalance(remaining);
     setTransactions((items) => [{ _id: `tx-${Date.now()}`, type: 'INVESTMENT', label: `Investment · ${selectedProperty.title}`, direction: 'DEBIT', amount, balanceAfter: remaining, refId: selectedProperty.title, createdAt: new Date().toISOString(), status: 'Completed' }, ...items]);
@@ -64,16 +170,16 @@ export function InvestorPortal({ onViewSwitch, currentView = 'investor' }) {
     setSelectedProperty(null);
   };
 
-  const handleEnquiryReply = (id, text) => setEnquiries((items) => items.map((item) => item.id === id ? { ...item, status: item.status === 'Resolved' ? 'Open' : item.status, updated: new Date().toISOString(), messages: [...item.messages, { from: 'Aman', date: new Date().toISOString(), text }] } : item));
+  const handleEnquiryReply = (id, text) => setEnquiries((items) => items.map((item) => item.id === id ? { ...item, status: item.status === 'Resolved' ? 'Open' : item.status, updated: new Date().toISOString(), messages: [...item.messages, { from: user?.name?.split(' ')[0] || 'Aman', date: new Date().toISOString(), text }] } : item));
 
   return (
     <InvestorLayout
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       walletBalance={walletBalance}
-      kycStatus={kycStatus}
-      userName="Aman Sharma"
-      userEmail="aman@demo.com"
+      kycStatus={user?.kyc?.status || kycStatus}
+      userName={user?.name || "Aman Sharma"}
+      userEmail={user?.email || "aman@demo.com"}
       onQuickTopUp={handleQuickTopUp}
       onViewSwitch={onViewSwitch}
       currentView={currentView}
@@ -81,7 +187,7 @@ export function InvestorPortal({ onViewSwitch, currentView = 'investor' }) {
       {activeTab === 'dashboard' && (
         <InvestorDashboard
           walletData={{ availableBalance: walletBalance }}
-          properties={propertyFixtures}
+          properties={properties}
           transactions={transactions}
           onNavigate={(tab) => setActiveTab(tab)}
           onTopUpClick={handleQuickTopUp}
@@ -92,7 +198,7 @@ export function InvestorPortal({ onViewSwitch, currentView = 'investor' }) {
 
       {activeTab === 'portfolio' && <PortfolioScreen onSelectHolding={(holding) => { setSelectedHolding(holding); setActiveTab('holding-detail'); }} onNavigate={setActiveTab} />}
       {activeTab === 'holding-detail' && selectedHolding && <HoldingDetailScreen holding={selectedHolding} onBack={() => setActiveTab('portfolio')} />}
-      {activeTab === 'marketplace' && <MarketplaceScreen properties={propertyFixtures} onSelectProperty={(property) => { setSelectedProperty(property); setActiveTab('property-detail'); }} onInvest={handleInvest} />}
+      {activeTab === 'marketplace' && <MarketplaceScreen properties={properties} onSelectProperty={(property) => { setSelectedProperty(property); setActiveTab('property-detail'); }} onInvest={handleInvest} />}
       {activeTab === 'property-detail' && selectedProperty && <PropertyDetailScreen property={selectedProperty} onBack={() => setActiveTab('marketplace')} onInvest={handleInvest} />}
       {activeTab === 'investment-confirm' && selectedProperty && <div className="mx-auto max-w-xl animate-fade-in-up rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"><p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Investment preview</p><h1 className="mt-2 text-2xl font-bold text-[#102D43]">Confirm your investment</h1><p className="mt-2 text-sm text-slate-500">{selectedProperty.title} · {selectedProperty.city}</p><div className="my-6 space-y-3 rounded-xl bg-slate-50 p-4 text-sm"><div className="flex justify-between"><span className="text-slate-500">Investment amount</span><strong>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format((selectedProperty.investmentAmount || selectedProperty.unitPrice) / 100)}</strong></div><div className="flex justify-between"><span className="text-slate-500">Available after investment</span><strong>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format((walletBalance - (selectedProperty.investmentAmount || selectedProperty.unitPrice)) / 100)}</strong></div></div>{(selectedProperty.investmentAmount || selectedProperty.unitPrice) > walletBalance && <p className="mb-4 text-sm font-semibold text-rose-600">Your wallet balance is too low. Add money before investing.</p>}<div className="flex flex-wrap gap-2"><button type="button" onClick={submitInvestment} disabled={(selectedProperty.investmentAmount || selectedProperty.unitPrice) > walletBalance} className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">Confirm demo investment</button><button type="button" onClick={() => setActiveTab('property-detail')} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600">Back to property</button></div><p className="mt-4 text-xs text-slate-400">Academic demo only. No real money or securities are involved.</p></div>}
       {activeTab === 'wallet' && <WalletScreen balance={walletBalance} transactions={transactions} onAction={handleWalletAction} />}

@@ -16,6 +16,9 @@ import { createTransactionsRouter } from "./routes/transactions.routes.js";
 import { createUploadsRouter } from "./routes/uploads.routes.js";
 import { createWalletRouter } from "./routes/wallet.routes.js";
 import { createPublicStatsRouter } from "./routes/publicStats.routes.js";
+import { createBrokerRouter } from "./routes/broker.routes.js";
+import { createNotificationsRouter } from "./routes/notifications.routes.js";
+import { createEnquiriesRouter } from "./routes/enquiries.routes.js";
 import { ApiError } from "./utils/ApiError.js";
 
 export function createApp({ env, db, mediaAdapter, mailer, logger = console }) {
@@ -73,6 +76,9 @@ export function createApp({ env, db, mediaAdapter, mailer, logger = console }) {
   api.use("/portfolio", createPortfolioRouter(auth));
   api.use("/transactions", createTransactionsRouter(auth));
   api.use("/wallet", createWalletRouter(auth));
+  api.use("/broker", createBrokerRouter(auth));
+  api.use("/notifications", createNotificationsRouter(auth));
+  api.use("/enquiries", createEnquiriesRouter(auth));
   app.use("/api/v1", api);
 
   app.use((_req, _res, next) => next(new ApiError("NOT_FOUND", "Resource not found")));

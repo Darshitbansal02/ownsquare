@@ -12,10 +12,30 @@ const FieldErrorsContext = createContext([]);
 export function Form({ error, children, ...props }) { return <FieldErrorsContext.Provider value={error?.details ?? []}><form {...props}>{children}</form></FieldErrorsContext.Provider>; }
 export function validationError(field, message) { return Object.assign(new Error(message), { details: [{ field, message }] }); }
 
+export const LayoutContext = createContext({ hasSidebar: false });
+
 export function Page({ title, eyebrow, children, actions, auth = false }) {
   const { user, logout, features } = useAuth();
+  const { hasSidebar } = useContext(LayoutContext);
   const [logoutError, setLogoutError] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false); const navId = useId();
+
+  if (hasSidebar) {
+    return (
+      <div className="dv-page dv-in-sidebar" style={{ background: 'transparent', minHeight: 'auto' }}>
+        <header className="dv-heading">
+          <div>
+            {eyebrow && <p className="dv-kicker">{eyebrow}</p>}
+            <h1 style={{ color: '#0F1E36' }}>{title}</h1>
+          </div>
+          {actions && <div className="dv-actions">{actions}</div>}
+        </header>
+        <ErrorNotice error={logoutError} />
+        {children}
+      </div>
+    );
+  }
+
   return <div className={`dv-page ${auth ? 'dv-auth' : ''}`}>
     <header className="dv-top"><div className="dv-brand-row"><Link className="dv-brand" to={user ? roleHome(user.role) : '/'}><span aria-hidden="true">◩</span> OwnSquare</Link><button className="dv-button dv-secondary dv-menu-toggle" aria-expanded={menuOpen} aria-controls={navId} onClick={()=>setMenuOpen(previous=>!previous)}>{menuOpen?'Close menu':'Menu'}</button></div>
       <nav id={navId} data-open={menuOpen} aria-label="Account navigation" onClick={()=>setMenuOpen(false)}><NavLink to="/properties">Marketplace</NavLink>{user ? <><NavLink end to={roleHome(user.role)}>Dashboard</NavLink>{user.role === 'BROKER' && <NavLink to="/broker/properties">Listings</NavLink>}{user.role === 'INVESTOR' && <><NavLink to="/investor/portfolio">Portfolio</NavLink><NavLink to="/investor/wallet">Wallet</NavLink>{features.kyc && <NavLink to="/investor/kyc">KYC</NavLink>}{features.enquiries && <NavLink to="/investor/enquiries">Enquiries</NavLink>}</>}{user.role === 'ADMIN' && <><NavLink to="/admin/properties">Properties</NavLink><NavLink to="/admin/users">Users</NavLink>{features.kyc && <NavLink to="/admin/kyc">KYC queue</NavLink>}{features.withdrawals && <NavLink to="/admin/withdrawals">Withdrawals</NavLink>}<NavLink to="/admin/settings">Settings</NavLink></>}<NavLink to="/profile">Profile</NavLink>{features.notifications && <NavLink to="/notifications">Notifications</NavLink>}<button className="dv-text" onClick={() => logout().catch(setLogoutError)}>Sign out</button></> : <><NavLink to="/login">Sign in</NavLink><NavLink to="/signup">Create account</NavLink></>}</nav>

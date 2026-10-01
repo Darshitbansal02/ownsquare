@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import useAuth from '../../hooks/useAuth.js';
 import {
   DashboardIcon,
   PropertyIcon,
@@ -14,6 +15,7 @@ import {
 } from '../../components/Icons.jsx';
 
 export function AdminLayout({ activeTab, setActiveTab, children }) {
+  const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -86,22 +88,24 @@ export function AdminLayout({ activeTab, setActiveTab, children }) {
 
         {/* User Profile Footer */}
         <div className="p-4 border-t border-slate-800/80 bg-[#0B1526]/50">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-full bg-slate-700 border border-slate-600 overflow-hidden flex items-center justify-center font-bold text-white text-xs">
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
-                alt="Admin Avatar"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
-              <span className="text-white">AU</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-emerald-600 border border-emerald-500 overflow-hidden flex items-center justify-center font-bold text-white text-xs">
+                {user?.name?.charAt(0) || 'A'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{user?.name || 'Administrator'}</p>
+                <p className="text-xs text-slate-400 truncate">{user?.email || 'admin@ownsquare.in'}</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate">Admin User</p>
-              <p className="text-xs text-slate-400 truncate">Platform Operator</p>
-            </div>
+            <button
+              type="button"
+              onClick={() => logout().catch(() => {})}
+              className="text-xs text-rose-400 hover:text-rose-200 transition-colors ml-2"
+              title="Sign Out"
+            >
+              Exit
+            </button>
           </div>
         </div>
       </aside>

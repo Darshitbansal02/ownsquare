@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AdminLayout } from './AdminLayout.jsx';
 import { AdminDashboard } from './AdminDashboard.jsx';
 import { AdminProperties } from './AdminProperties.jsx';
@@ -12,8 +13,31 @@ import { AdminAudit } from './AdminAudit.jsx';
 import { AdminSettings } from './AdminSettings.jsx';
 
 export function AdminPortal() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const validTabs = ['dashboard', 'properties', 'approvalQueue', 'users', 'kyc', 'withdrawals', 'analytics', 'notifications', 'audit', 'settings'];
+  const pathSegment = location.pathname.replace(/^\/admin\/?/, '').split('/')[0];
+  const initialTab = validTabs.includes(pathSegment) ? pathSegment : 'dashboard';
+
+  const [activeTab, setActiveTabState] = useState(initialTab);
   const [sellingProperty, setSellingProperty] = useState(null);
+
+  useEffect(() => {
+    const segment = location.pathname.replace(/^\/admin\/?/, '').split('/')[0];
+    if (validTabs.includes(segment) && segment !== activeTab) {
+      setActiveTabState(segment);
+    } else if (!segment && activeTab !== 'dashboard') {
+      setActiveTabState('dashboard');
+    }
+  }, [location.pathname]);
+
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    if (validTabs.includes(tab)) {
+      navigate(tab === 'dashboard' ? '/admin' : `/admin/${tab}`);
+    }
+  };
 
   const handleSelectSellProperty = (property) => {
     setSellingProperty(property);
