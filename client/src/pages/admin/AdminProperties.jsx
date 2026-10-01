@@ -491,3 +491,6 @@ export function AdminProperties({ onSelectSellProperty, initialFilter }) {
     </div>
   );
 }
+
+
+export default AdminProperties;
