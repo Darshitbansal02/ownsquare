@@ -7,6 +7,7 @@ Record real changes only. Keep feature changes small and list breaking/integrati
 | Developer | Feature | Change | Breaking/integration impact |
 |---|---|---|---|
 | AI-assisted documentation setup; no individual team contribution attributed | Contract-first foundation | Created requested requirements, API/schema/business/UI/architecture contracts, ownership agreement, test/deployment plans, examples, log templates, env examples and gitignore | No application source added or existing source specification changed. D1-D9 need actual team sign-off before coding. Future modules must implement agreed DTOs/paise/enums/error/session semantics. |
+| Darshit | Admin Full-Stack (Backend & Frontend) | Implemented admin routes, controllers, validators, services (admin, propertyAdmin, kyc), models, shared constants, and full admin UI pages (Dashboard, Properties, Sale/Payout, Users, KYC, Withdrawals, Settings) conforming to design system tokens | None. Matches all contracts and single-source enums exactly. Ready for integration. |
 
 ## Entry template
 
