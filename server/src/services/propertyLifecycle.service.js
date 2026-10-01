@@ -1,7 +1,7 @@
 import { ApiError } from "../utils/ApiError.js";
 import { requireActor } from "../utils/actors.js";
 import { propertyDTO } from "../utils/dto.js";
-import { multiply, sum } from "../utils/money.js";
+import { integer, multiply, sum } from "../utils/money.js";
 import { validatePropertySubmission } from "../utils/propertyValidation.js";
 import { inTransaction } from "../utils/transaction.js";
 
@@ -14,6 +14,7 @@ export function createPropertyLifecycleService({ connection, models, ledger, not
     return property;
   }
   async function guard(property, changes, session) {
+    integer(property.version + 1, "version");
     const updated = await models.Property.findOneAndUpdate({
       _id: property._id, status: property.status, version: property.version
     }, { $set: changes, $inc: { version: 1 } }, { session, new: true, runValidators: true });

@@ -75,3 +75,10 @@ publication media-verifier dependency, rejection events and full-refund service.
 Focused tests: 5/5 passed; lint initially caught loose null comparisons, corrected
 to explicit null/undefined guards before commit. Full invested-refund verification
 is scheduled against the real investment service, not fabricated holdings.
+
+Investment increment: conditional inventory/version claim, sole-ledger debit,
+KYC/aggregate caps, immutable request replay, transactional funding commission
+and recipient events, plus owned investment adapters. Investment/lifecycle tests:
+12/12 real replica-set tests passed, including five final-block races and injected
+debit/commission/event/refund rollback. Lint passed; authenticated HTTP/browser
+proof is still blocked by missing teammate modules.

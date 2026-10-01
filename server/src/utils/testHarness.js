@@ -5,6 +5,8 @@ import { createLedgerService } from "../services/ledger.service.js";
 import { createWalletService } from "../services/wallet.service.js";
 import { createWithdrawalService } from "../services/withdrawal.service.js";
 import { createNotificationService } from "../services/notification.service.js";
+import { createInvestmentService } from "../services/investment.service.js";
+import { createPropertyLifecycleService } from "../services/propertyLifecycle.service.js";
 import { inTransaction } from "./transaction.js";
 
 export async function openTestDatabase() {
@@ -17,6 +19,8 @@ export async function openTestDatabase() {
   const notifications = createNotificationService(context);
   const wallet = createWalletService({ ...context, ledger, payment: { provider: "mock", secret: randomUUID() } });
   const withdrawals = createWithdrawalService({ ...context, ledger, notifications });
+  const investments = createInvestmentService({ ...context, ledger, notifications });
+  const lifecycle = createPropertyLifecycleService({ ...context, ledger, notifications });
   async function user(role = "INVESTOR", extra = {}) {
     return db.models.User.create({
       name: "Fixture Actor", email: `${randomUUID()}@example.test`, phone: "9999999999",
@@ -41,5 +45,12 @@ export async function openTestDatabase() {
     await db.connection.close();
     await replica.stop();
   }
-  return { ...context, ledger, notifications, wallet, withdrawals, user, credit, settings, close };
+  async function liveProperty(extra = {}) {
+    const admin = await user("ADMIN");
+    return db.models.Property.create({
+      createdBy: admin._id, valuation: 10000, totalUnits: 100, unitPrice: 100,
+      minUnits: 1, status: "LIVE", liveAt: new Date(), expectedAppreciationPct: 12, ...extra
+    });
+  }
+  return { ...context, ledger, notifications, wallet, withdrawals, investments, lifecycle, user, credit, settings, liveProperty, close };
 }

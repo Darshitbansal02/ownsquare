@@ -48,3 +48,11 @@ Do not use templates as completed entries; preserve all genuine team additions w
 - Verification: 5 focused tests passed; corrected lint-reported comparisons.
 - Branch: `feature/backend-lifecycle-refunds`; invested-refund race proof follows
   with the investment increment.
+
+### 2026-10-01 - Dhruv: atomic investments
+
+- Added idempotent investments, wallet/inventory serialization, KYC/ownership
+  gates, commission/events, owned HTTP adapters and invested-refund race tests.
+- Verification: 12 investment/lifecycle replica-set tests pass, including five
+  exact final-block races; lint passes. HTTP/auth/browser integration not claimed.
+- Branch: `feature/backend-investments`, stacked on lifecycle.

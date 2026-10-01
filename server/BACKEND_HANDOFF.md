@@ -100,3 +100,22 @@ integrated; no arbitrary URL bypass is supplied.
   passed. Foreign/incorrect-role submission, incomplete drafts, rejection/event
   atomicity and illegal/repeated cancellation tested. Full invested refunds and
   purchase/cancel races will be tested with the next investment increment.
+
+## Investment handoff
+
+`createInvestmentService({...db,ledger,notifications,features})` exposes
+`invest(investorId,{propertyId,units},idempotencyKey)` returning `{data,replay}`,
+and `list(investorId,validatedQuery)`. The router mounts at `/api/v1/investments`,
+maps creation to 201 and replay to 200, and requires a UUID Idempotency-Key.
+Snapshots remain unchanged after refund/exit. Roles/isActive are checked before
+replay; KYC/cap are rechecked for new purchases, not old confirmations.
+
+- Investment/lifecycle runner passed 12 real replica-set tests (9 investment,
+  3 lifecycle); lint passed. Five synchronized final-10-unit rounds each produced
+  one purchase, one `409 INSUFFICIENT_UNITS` with numeric remainingUnits=0,
+  one debit and exactly one commission. Ordinary later purchase is ALREADY_FUNDED.
+- Also verified different-property wallet overspend, concurrent same-key replay,
+  aggregate cap races, reserved-balance spending, purchase/cancel races, refunds,
+  and rollback after debit, funding event/commission and refund insertion.
+- This is service-level persistence/concurrency evidence. Exact authenticated
+  HTTP and two-browser-window proof still requires Devang/Chetan's integration.
