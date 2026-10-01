@@ -14,13 +14,13 @@ There is no deployment.
 
 ## Team
 
-| Member | Responsibility | GitHub username | Roll number |
-|---|---|---|---|
-| Dhruv | Backend Lead: models, investment, payouts, ledger, transaction integrity | [dhruvbhadhotiya](https://github.com/dhruvbhadhotiya) | 2415800031 |
-| Deepti | Frontend Lead: UI/design system, public and investor pages, layouts | [DeeptiYadav10648](https://github.com/DeeptiYadav10648) | 2415800029 |
-| Devang | Full-Stack Auth + Broker: JWT/RBAC, auth and broker modules | [DevangMittal23](https://github.com/DevangMittal23) | 2415800030 |
-| Darshit | Full-Stack Admin: reviews/users/KYC/withdrawals/sale UI | [Darshitbansal02](https://github.com/Darshitbansal02) | 2415800028 |
-| Chetan | Integration + QA: API wiring, seed/tests/deploy/README | [Chetansaraswat01](https://github.com/Chetansaraswat01) | 2415800027 |
+| Roll | Member | Responsibility | GitHub username |
+|---:|---|---|---|
+| 2415800027 | Chetan | Integration + QA: API wiring, seed/tests/deploy/README | [Chetansaraswat01](https://github.com/Chetansaraswat01) |
+| 2415800028 | Darshit | Full-Stack Admin: reviews/users/KYC/withdrawals/sale UI | [Darshitbansal02](https://github.com/Darshitbansal02) |
+| 2415800029 | Deepti | Frontend Lead: UI/design system, public and investor pages, layouts | [DeeptiYadav10648](https://github.com/DeeptiYadav10648) |
+| 2415800030 | Devang | Full-Stack Auth + Broker: JWT/RBAC, auth and broker modules | [DevangMittal23](https://github.com/DevangMittal23) |
+| 2415800031 | Dhruv | Backend Lead: models, investment, payouts, ledger, transaction integrity | [dhruvbhadhotiya](https://github.com/dhruvbhadhotiya) |
 
 Ownership, dependencies and merge gates: [COLLABORATION.md](COLLABORATION.md).
 
@@ -100,20 +100,28 @@ Complete inventory: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Test Credentials
 
-`npm run seed --workspace server` creates these fictional identities using the passwords you supply:
+These are **fictional academic demo accounts** on a throwaway demo database. They hold no money and no securities, and the same warning appears in the app footer.
 
 | Role | Email | Password |
 |---|---|---|
-| Admin | `admin@demo.com` | `SEED_ADMIN_PASSWORD` |
-| Broker | `rohit@demo.com` | `SEED_BROKER_PASSWORD` |
-| Broker | `other-broker@demo.com` | `SEED_BROKER_PASSWORD` |
-| Investor | `aman@demo.com` | `SEED_INVESTOR_PASSWORD` |
-| Investor | `priya@demo.com` | `SEED_INVESTOR_PASSWORD` |
-| Investor | `karan@demo.com` | `SEED_INVESTOR_PASSWORD` |
-| Investor | `isha@demo.com` | `SEED_INVESTOR_PASSWORD` |
-| Investor | `neha@demo.com` | `SEED_INVESTOR_PASSWORD` |
+| Admin | `admin@demo.com` | `Admin@123` |
+| Broker | `rohit@demo.com` | `Broker@123` |
+| Broker | `other-broker@demo.com` | `Broker@123` |
+| Investor | `aman@demo.com` | `Invest@123` |
+| Investor | `priya@demo.com` | `Invest@123` |
+| Investor | `karan@demo.com` | `Invest@123` |
+| Investor | `isha@demo.com` | `Invest@123` |
+| Investor | `neha@demo.com` | `Invest@123` |
 
-Use strong local demo values, never a real account password. **Re-running the seed preserves existing passwords** rather than resetting them, so a half-seeded database is repaired instead of rewritten. The second broker exists so ownership isolation can be tested against a foreign asset.
+```powershell
+npm run seed --workspace server   # creates these accounts
+```
+
+Two accounts per role exist for isolation testing: `other-broker@demo.com` lets you check that a broker cannot reach another broker's asset, and five investors exercise the ownership cap and payout remainder rules.
+
+**The passwords are operator-supplied, not hardcoded.** The seed reads `SEED_ADMIN_PASSWORD`, `SEED_BROKER_PASSWORD` and `SEED_INVESTOR_PASSWORD` from `server/.env` and applies the real password policy (8+ characters with a number and a symbol). Set them to the values above to reproduce this table, or choose your own — the demo passwords above are published deliberately so an evaluator can sign in, and must never be reused for a real account.
+
+**Re-running the seed preserves existing passwords** rather than resetting them, so a half-seeded database is repaired instead of rewritten.
 
 ## Seed Data
 
