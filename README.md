@@ -2,69 +2,71 @@
 
 **One property. Many owners.** An academic fractional real estate investment portal for Admin, Broker and Investor roles.
 
+> **This is an academic project. No real money or securities are involved.**
 
-**Current status:** P0/P1 application modules are implemented on `features/full-stack-auth-broker` using real MongoDB/authentication and transactional financial writes. Automated financial acceptance passes. Browser and external-provider acceptance are recorded in the [continuation handoff](docs/P0_P1_IMPLEMENTATION.md). There is no deployment.
+## Current status
 
-Implementation boundaries and integration exports: [Auth + Broker handoff](docs/AUTH_BROKER_HANDOFF.md). Shared design decisions remain recommendations for team review; this implementation does not record other members' approval.
+The financial backend, the authentication layer and the full frontend are merged on `main`. Automated verification passes against a real MongoDB replica set: **111 tests across 21 files**, lint clean, client builds.
+
+**Not yet wired:** the public marketplace has no backend. `GET /properties` (list/detail) and the broker CRUD endpoints are documented but not implemented, so the marketplace, property detail and broker screens render from fixtures rather than live data. See [Known Limitations](#known-limitations) for the full honest list.
+
+There is no deployment.
 
 ## Team
 
 | Member | Responsibility | GitHub username | Roll number |
 |---|---|---|---|
-| Dhruv | Backend Lead: models, investment, payouts, ledger, transaction integrity | `<dhruv-github>` | `<roll-number>` |
-| Deepti | Frontend Lead: UI/design system, public and investor pages, layouts | `<deepti-github>` | `<roll-number>` |
-| Devang | Full-Stack Auth + Broker: JWT/RBAC, auth and broker modules | `<devang-github>` | `<roll-number>` |
-| Darshit | Full-Stack Admin: reviews/users/KYC/withdrawals/sale UI | `<darshit-github>` | `<roll-number>` |
-| Chetan | Integration + QA: API wiring, seed/tests/deploy/README | `<chetan-github>` | `<roll-number>` |
+| Dhruv | Backend Lead: models, investment, payouts, ledger, transaction integrity | [dhruvbhadhotiya](https://github.com/dhruvbhadhotiya) | 2415800031 |
+| Deepti | Frontend Lead: UI/design system, public and investor pages, layouts | [DeeptiYadav10648](https://github.com/DeeptiYadav10648) | 2415800029 |
+| Devang | Full-Stack Auth + Broker: JWT/RBAC, auth and broker modules | [DevangMittal23](https://github.com/DevangMittal23) | 2415800030 |
+| Darshit | Full-Stack Admin: reviews/users/KYC/withdrawals/sale UI | [Darshitbansal02](https://github.com/Darshitbansal02) | 2415800028 |
+| Chetan | Integration + QA: API wiring, seed/tests/deploy/README | [Chetansaraswat01](https://github.com/Chetansaraswat01) | 2415800027 |
 
 Ownership, dependencies and merge gates: [COLLABORATION.md](COLLABORATION.md).
 
 ## Live Links
 
-| Deliverable | Placeholder |
+| Deliverable | Status |
 |---|---|
-| Frontend | `<frontend-live-url>` |
-| Backend | `<backend-live-url>` |
-| API health | `<backend-live-url>/health` |
-| Postman/Swagger | `<verified-api-documentation-url>` |
+| Frontend | not deployed |
+| Backend | not deployed |
+| API health | `GET /health` once deployed |
+| Postman collection | [docs/OwnSquare.postman_collection.json](docs/OwnSquare.postman_collection.json) (local import) |
 
-Do not interpret these placeholders as deployments.
+Do not interpret this table as a deployment.
 
 ## Tech Stack
 
-Implemented: React/Vite, React Router, TanStack Query, scoped CSS and accessible SVG charts; Express, Mongoose/MongoDB replica set, Zod, bcrypt/JWT, Cloudinary, optional Nodemailer and signed academic mock payments. The lockfile pins the installed dependency graph. No Tailwind/shadcn, Recharts or live gateway is claimed.
-
-## Features
-
-**Implemented P0:** three-role auth/RBAC; draft-to-sale property lifecycle; searchable marketplace/detail/calculator; atomic investments and funding commission; wallet/append-only ledger; investor portfolio; admin sale/exact payouts; broker/admin dashboards and user management.
-
-**Implemented P1:** optional password reset, private dummy KYC/gate, cumulative ownership cap, reserved withdrawals, enquiries and transactional in-app notifications. Real Cloudinary and SMTP checks require operator credentials. P2 refresh rotation follows P0/P1 acceptance; rent/secondary market/audit/dark mode are separate future work.
-
-Scope/acceptance: [PRD.md](PRD.md). Primary authority: [source problem statement](docs/PS1_Fractional_Real_Estate_Investment_Portal.md).
+Frontend: React 19 + Vite 7, React Router 7, TanStack Query 5, Tailwind CSS 3.
+Backend: Node.js + Express 5 (ES modules), Mongoose 8 against a MongoDB replica set, Zod, bcrypt, jsonwebtoken, cookie-parser, helmet, express-rate-limit, multer, Cloudinary SDK, Nodemailer.
+Payments: signed academic mock gateway (Razorpay test keys are accepted by configuration but unverified).
+Tests: Vitest + Supertest against `mongodb-memory-server` replica sets.
 
 ## Architecture
 
 Frontend -> one API client -> routes/middleware -> controllers -> services -> Mongoose -> MongoDB replica set.
 
-Server is authoritative for all money and ownership. Integer paise, one ledger service, conditional inventory updates, wallet serialization, transactional rollback and unique payout/payment/idempotency constraints.
+The server is authoritative for all money and ownership. Amounts are integer paise; `ledger.service.js` is the only writer of `Transaction` documents; wallet balances are a cache kept in step with the ledger inside the same transaction; inventory uses conditional atomic updates; payouts and cancellations run in single session transactions guarded by unique indexes.
+
+There are **14 services and exactly one composition root** (`server/src/utils/backendServices.js`). No module writes a balance or posts a ledger row directly.
 
 [ARCHITECTURE.md](ARCHITECTURE.md) | [DATABASE.md](DATABASE.md) | [BUSINESS_RULES.md](BUSINESS_RULES.md) | [CONTRACTS.md](CONTRACTS.md)
 
 ## Local Setup
 
-Use Node 22+ compatible with the lockfile (tested Node 24.12) and a MongoDB replica set. Cloudinary is needed for media attachment/submission and the comprehensive seed; SMTP is required only when password reset is enabled.
-
-Planned prerequisites: approved Node 22+/npm, transaction-capable Atlas/local replica set, configured Cloudinary; test/mock payment configuration.
+Requires Node 22+ (verified on 24.20) and a **transaction-capable** MongoDB replica set. The server refuses to start against a standalone MongoDB, by design: financial writes depend on multi-document transactions.
 
 ```powershell
-git clone https://github.com/DevangMittal23/OwnSquare.git
+git clone https://github.com/dhruvbhadhotiya/OwnSquare.git
 Set-Location .\OwnSquare
-if (!(Test-Path .\client\.env)) { Copy-Item .\client\.env.example .\client\.env }
-if (!(Test-Path .\server\.env)) { Copy-Item .\server\.env.example .\server\.env }
-# Set MONGO_URI, distinct generated JWT_SECRET and MOCK_PAYMENT_SECRET,
-# Cloudinary credentials and strong SEED_* passwords. SMTP is optional.
-# Set SEED_MEDIA_DIR to three owned dummy images (JPG/PNG/WebP).
-npm ci
+Copy-Item .\client\.env.example .\client\.env
+Copy-Item .\server\.env.example .\server\.env
+```
+
+Fill `server/.env`: `MONGO_URI` (replica set), a generated `JWT_SECRET` (16+ chars) and `MOCK_PAYMENT_SECRET` (32+ chars), plus the three `SEED_*_PASSWORD` values. Fill `client/.env` with `VITE_API_BASE_URL=http://localhost:5000/api/v1`.
+
+```powershell
+npm install
 npm run seed --workspace server
 npm run dev --workspace server
 ```
@@ -72,63 +74,99 @@ npm run dev --workspace server
 Second terminal, repository root:
 
 ```powershell
-npm run dev --workspace client
+npm run dev:client
 ```
 
-Local frontend http://localhost:5173; backend http://localhost:5000; API `/api/v1`. Match CLIENT_URL to the browser origin. `seed` creates eight academic accounts and eight property states with reconciling financial history. It preserves existing accounts/passwords/settings and never drops a database. `seed:auth` remains an account-only alternative. Newly registered brokers require administrator approval.
+Frontend http://localhost:5173, backend http://localhost:5000, API under `/api/v1`. `CLIENT_URL` must match the browser origin exactly.
 
-Checks: `npm test`, `npm run lint`, `npm run build`. The integration suite downloads MongoDB on its first run and starts an isolated local replica set; it never uses your configured database. Test doubles cover SMTP delivery and Cloudinary transport only, not auth or MongoDB. Real-provider verification needs operator credentials. Client tokens are held in memory: reloading requires sign-in, per D2.
+Cloudinary is optional: without it, uploads return `503` and property publication refuses unverified media, while every other route keeps working. SMTP is required only to enable password reset.
+
+### Checks
+
+```powershell
+npm run lint              # eslint server shared
+npm run test --workspace server       # unit + integration
+npm run test:integration --workspace server
+npm run build             # client production build
+```
+
+The integration suite starts its own isolated replica set and never touches your configured database. External transports (SMTP, Cloudinary) are the only test doubles; authentication, MongoDB and all financial logic run for real.
 
 ## Environment Variables
 
-[client/.env.example](client/.env.example) contains the public API URL only. [server/.env.example](server/.env.example) documents runtime/database/JWT/CORS, Cloudinary, signed mock payments, initial fee/cap settings, P1 gates, mail and seed configuration. PAYMENT_PROVIDER accepts `mock` only; unsupported adapters fail startup.
+[client/.env.example](client/.env.example) holds the public API URL only. [server/.env.example](server/.env.example) documents runtime, database, JWT, CORS, Cloudinary, mock payment, initial fee/cap rates, P1 feature gates, mail and seed passwords. Empty secrets are intentional; startup fails visibly on a missing or weak secret rather than falling back to a development default. Never commit a filled `.env` or place a server secret in a `VITE_` variable.
 
-Complete inventory: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Never commit filled env files or put server secrets in VITE_ variables. Empty secrets are intentional.
+Complete inventory: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Test Credentials
 
-Run `seed` to create these fictional identities with your operator-supplied passwords:
+`npm run seed --workspace server` creates these fictional identities using the passwords you supply:
 
-| Role | Planned email | Password supplied by operator |
+| Role | Email | Password |
 |---|---|---|
-| Admin | admin@demo.com | `<SEED_ADMIN_PASSWORD>` |
-| Broker | rohit@demo.com | `<SEED_BROKER_PASSWORD>` |
-| Investor | aman@demo.com | `<SEED_INVESTOR_PASSWORD>` |
+| Admin | `admin@demo.com` | `SEED_ADMIN_PASSWORD` |
+| Broker | `rohit@demo.com` | `SEED_BROKER_PASSWORD` |
+| Broker | `other-broker@demo.com` | `SEED_BROKER_PASSWORD` |
+| Investor | `aman@demo.com` | `SEED_INVESTOR_PASSWORD` |
+| Investor | `priya@demo.com` | `SEED_INVESTOR_PASSWORD` |
+| Investor | `karan@demo.com` | `SEED_INVESTOR_PASSWORD` |
+| Investor | `isha@demo.com` | `SEED_INVESTOR_PASSWORD` |
+| Investor | `neha@demo.com` | `SEED_INVESTOR_PASSWORD` |
 
-The full seed also creates other-broker@demo.com and investors priya@demo.com, karan@demo.com, isha@demo.com and neha@demo.com. Use strong local demo passwords; never reuse real account passwords. Existing passwords are preserved on rerun.
-
-## API Documentation
-
-- [API_DESIGN.md](API_DESIGN.md): all methods, access, requests, responses, validations and supporting endpoints.
-- [docs/API_EXAMPLES.md](docs/API_EXAMPLES.md): realistic illustrative JSON, integer paise, not live responses.
-- [docs/ERROR_CODES.md](docs/ERROR_CODES.md): one error catalog.
-- [docs/USER_FLOWS.md](docs/USER_FLOWS.md): lifecycle/sequences.
-- [Importable Postman collection](docs/OwnSquare.postman_collection.json): all 47 documented P0/P1 endpoints; set your local variables and appropriate role token.
+Use strong local demo values, never a real account password. **Re-running the seed preserves existing passwords** rather than resetting them, so a half-seeded database is repaired instead of rewritten. The second broker exists so ownership isolation can be tested against a foreign asset.
 
 ## Seed Data
 
-`npm run seed --workspace server` creates 8 properties: 2 partly funded LIVE, 1 FUNDED, 1 HOLDING, 1 SOLD, 1 PENDING_APPROVAL, 1 REJECTED and 1 DRAFT; 5 investors, 2 brokers and 1 admin. Financial writes run through the shared ledger/services, with labelled academic seed top-ups. The source Noida example is included; loss/rounding fixtures are verified in integration tests. The repeated-seed test confirms no duplicate financial entries.
+The seed creates **8 properties** across statuses: 2 partly funded `LIVE`, 1 `FUNDED`, 1 `HOLDING`, 1 `SOLD`, 1 `PENDING_APPROVAL`, 1 `REJECTED`, 1 `DRAFT`, plus 5 investors, 2 brokers and 1 admin. It refuses to run when `NODE_ENV=production` and never drops a collection.
 
-No blanket DB reset; academic fixture scope only. [TESTING.md](TESTING.md) defines invariants.
+Every money movement is produced by the real services rather than hand-written rows, so the history reconciles by construction: mock-gateway top-ups, atomic investments with idempotency keys, broker commission credited once at funding, and the source INR 1.4 crore sale.
+
+Verified seed output:
+
+| Ledger entry | Count | Total (paise) |
+|---|---:|---:|
+| `TOPUP` credit | 5 | 3,370,000,000 |
+| `INVESTMENT` debit | 19 | 3,370,000,000 |
+| `COMMISSION` credit | 3 | 30,000,000 |
+| `FEE` credit | 1 | 28,000,000 |
+| `PAYOUT` credit | 5 | 1,372,000,000 |
+
+The `SOLD` asset reproduces the source document exactly: fee `28,000,000`, distributable `1,372,000,000`, and payouts of `27,440,000` / `68,600,000` / `548,800,000` / `411,600,000` / `315,560,000`, summing to `1,372,000,000`.
+
+Before reporting success the seed asserts ledger sequence order, wallet cache agreement, inventory against `unitsSold`, principal against `unitPrice`, and payout conservation. It fails loudly rather than leaving misleading data behind.
+
+[TESTING.md](TESTING.md) defines the invariants.
+
+## API Documentation
+
+- [API_DESIGN.md](API_DESIGN.md): methods, access, requests, responses, validations.
+- [docs/API_EXAMPLES.md](docs/API_EXAMPLES.md): illustrative JSON in integer paise.
+- [docs/ERROR_CODES.md](docs/ERROR_CODES.md): single error catalog.
+- [docs/USER_FLOWS.md](docs/USER_FLOWS.md): lifecycle sequences.
+- [docs/OwnSquare.postman_collection.json](docs/OwnSquare.postman_collection.json): importable collection. **It was authored against the wider endpoint contract, so treat it as a work in progress: several requests target routes listed under Known Limitations below.**
 
 ## Known Limitations
 
-- Real Cloudinary public/private delivery and SMTP reset email remain unverified without operator configuration. Tests replace external transports only; real DB/auth/financial flows are exercised.
-- D1-D9 design choices await actual team approval; see [CONTRACTS.md](CONTRACTS.md).
-- All P1 capabilities follow validated server flags. Password reset defaults to disabled until SMTP is configured; KYC, withdrawals and ownership caps default to enabled.
-- No real payments, identity verification, bank transfer or guaranteed investment return.
-- P2 schema/API/security additions are not implemented/finalized.
+Stated plainly, because a README that overclaims is worse than a short one.
+
+- **No public property API.** `GET /properties` list and `GET /properties/:id` detail are documented but not implemented. The marketplace and property detail screens therefore have no live data source.
+- **No broker module.** Broker draft CRUD, submission and analytics endpoints are not implemented; `property.service.js` does not exist on `main`. The broker screens render fixtures.
+- **No enquiries, notification-read or profile endpoints**, though the frontend pages for them exist.
+- **Uploads need Cloudinary.** Without credentials, `/uploads` returns `503` and publication is blocked, because media ownership cannot be verified without the provider.
+- **Password reset needs SMTP** and is disabled by default. It is never faked: the endpoint reports `FEATURE_DISABLED` rather than pretending to send mail.
+- **Razorpay is unverified.** `PAYMENT_PROVIDER` accepts `razorpay` and rejects non-`rzp_test_` keys, but only the signed mock path has been exercised.
+- **`D1`-`D9` design decisions still await recorded team approval**, and `DATABASE.md` has been amended: refresh-token storage adds a tenth collection for `AUTH-4`.
+- **No deployment, no demo video, no Postman verification against a live host.**
+- No real payments, identity verification, bank transfer or guaranteed investment return. P2 rental distribution, secondary market and audit log are not implemented.
 
 ## Demo Video
 
 `<demo-video-url>` - not recorded yet.
 
-Required 3-5 minute journey: broker approval/listing -> admin review -> investor test top-up/20-unit purchase -> final funding/commission -> HOLDING -> INR 1.4 crore sale/INR 2,74,400 Aman payout -> portfolio/ledger. Include final-units concurrency proof with exactly one winner and one HTTP 409.
+Required 3-5 minute journey: broker approval and listing -> admin review -> investor top-up and 20-unit purchase -> funding and commission -> `HOLDING` -> INR 1.4 crore sale with Aman's INR 2,74,400 payout -> portfolio and ledger. Must include the final-units concurrency proof: exactly one winner, one HTTP 409.
 
 ## Development and Submission
 
-[UI_UX.md](UI_UX.md), [TESTING.md](TESTING.md), [PROMPTS.md](PROMPTS.md), [CHANGELOG.md](CHANGELOG.md). Maintain real prompt/contribution history, PR reviews, env examples, fresh setup evidence, Postman coverage and honest limitations.
+[UI_UX.md](UI_UX.md), [TESTING.md](TESTING.md), [COLLABORATION.md](COLLABORATION.md), [PROMPTS.md](PROMPTS.md), [CHANGELOG.md](CHANGELOG.md). Maintain genuine prompt and contribution history, PR reviews, env examples, fresh-setup evidence and honest limitations.
 
 **This is an academic project. No real money or securities are involved.**
-
-
