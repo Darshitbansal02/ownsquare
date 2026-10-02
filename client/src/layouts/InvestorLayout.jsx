@@ -21,7 +21,7 @@ export function InvestorLayout({
     { id: 'dashboard', label: 'Dashboard', icon: '📊', description: 'Overview & KPIs' },
     { id: 'portfolio', label: 'My Portfolio', icon: '🏢', description: 'Holdings & performance' },
     { id: 'marketplace', label: 'Marketplace', icon: '🛒', description: 'Browse live properties' },
-    { id: 'wallet', label: 'Wallet & Ledger', icon: '💳', description: 'Top-up & transactions' },
+    { id: 'wallet', label: 'Wallet', icon: '💳', description: 'Cash & transactions' },
     { id: 'kyc', label: 'Identity & KYC', icon: '🛡️', description: 'Document verification' },
     { id: 'enquiries', label: 'Enquiries', icon: '💬', description: 'Broker message threads' }
   ];
@@ -32,7 +32,7 @@ export function InvestorLayout({
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] flex flex-col font-sans">
+    <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(ellipse_at_top_right,_rgba(16,185,129,.06),_transparent_38%),#F5F7F8] flex flex-col font-sans">
       {/* Top Banner - Academic Project Notice */}
       <div className="bg-[#0F2A4A] text-white px-4 py-1.5 text-xs text-center font-medium flex items-center justify-between border-b border-white/10">
         <div className="flex-1 text-center">
@@ -78,10 +78,10 @@ export function InvestorLayout({
 
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop Sidebar */}
-        <aside className="hidden md:flex md:w-64 md:flex-col bg-[#0F2A4A] text-white border-r border-[#1A3D66] flex-shrink-0">
+        <aside className="hidden md:flex md:w-64 md:flex-col bg-gradient-to-b from-[#102D43] via-[#0F2A4A] to-[#0B2236] text-white border-r border-[#1A3D66] flex-shrink-0 shadow-[8px_0_24px_rgba(15,42,74,.07)]">
           {/* Brand Logo & Role */}
           <div className="p-6 border-b border-white/10 flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#10B981] to-[#0F2A4A] border border-white/20 flex items-center justify-center font-bold text-white text-lg shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#10B981] to-[#0F2A4A] border border-white/20 flex items-center justify-center font-bold text-white text-lg shadow-sm">
               OS
             </div>
             <div>
@@ -103,7 +103,7 @@ export function InvestorLayout({
                 <button
                   key={item.id}
                   onClick={() => handleNavClick(item.id)}
-                  className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-left group ${
+                    className={`w-full flex items-center px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-left group ${
                     isActive
                       ? 'bg-[#10B981] text-white shadow-md'
                       : 'text-gray-300 hover:bg-white/10 hover:text-white'
@@ -147,7 +147,7 @@ export function InvestorLayout({
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
           {/* Top Bar */}
-          <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-xs">
+          <header className="bg-white/90 border-b border-slate-200/80 sticky top-0 z-20 shadow-[0_4px_18px_rgba(15,42,74,.035)] backdrop-blur-xl">
             <div className="px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
               {/* Mobile menu button */}
               <div className="flex items-center space-x-3">
@@ -156,6 +156,7 @@ export function InvestorLayout({
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   className="md:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#0F2A4A]"
                   aria-label="Toggle navigation menu"
+                  aria-expanded={mobileMenuOpen}
                 >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     {mobileMenuOpen ? (
@@ -268,12 +269,12 @@ export function InvestorLayout({
 
             {/* Mobile Drawer Navigation */}
             {mobileMenuOpen && (
-              <div className="md:hidden border-t border-gray-200 bg-[#0F2A4A] text-white p-4 space-y-2">
+              <div className="md:hidden border-t border-white/10 bg-gradient-to-b from-[#102D43] to-[#0B2236] text-white p-4 space-y-2 shadow-xl animate-fade-in">
                 {navigationItems.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => handleNavClick(item.id)}
-                    className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-medium ${
+                    className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                       activeTab === item.id
                         ? 'bg-[#10B981] text-white'
                         : 'text-gray-300 hover:bg-white/10'
@@ -317,7 +318,7 @@ export function InvestorLayout({
           </header>
 
           {/* Main Viewport */}
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
             {children}
           </main>
 

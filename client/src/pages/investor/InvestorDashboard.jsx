@@ -4,6 +4,7 @@ import { KpiCard } from '../../components/ui/Card.jsx';
 import { AllocationDonut } from '../../components/charts/AllocationDonut.jsx';
 import { PropertyCard } from '../../components/property/PropertyCard.jsx';
 import { StatusChip } from '../../components/StatusChip.jsx';
+import { PerformanceChart } from './InvestorScreens.jsx';
 
 export function InvestorDashboard({
   portfolioData,
@@ -22,12 +23,12 @@ export function InvestorDashboard({
   const defaultPortfolio = {
     totalInvested: 30000000, // ₹3 Lakh
     currentValue: 33600000, // ₹3.36 Lakh (estimated)
-    totalPayouts: 0,
-    overallRoiPct: 12.0,
+    totalPayouts: 500000,
+    overallRoiPct: 13.7,
     wallet: {
-      balance: 30000000,
+        balance: 20000000,
       reservedBalance: 0,
-      availableBalance: 30000000
+        availableBalance: 20500000
     },
     allocation: [
       { propertyId: '100000000000000000000001', title: '2BHK, Sector 150, Noida', amount: 20000000 },
@@ -137,11 +138,11 @@ export function InvestorDashboard({
       {/* Page Title & Status */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#0F2A4A] tracking-tight">
-            Investor Dashboard
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#0F2A4A] tracking-tight">
+              Good morning, Aman <span aria-hidden="true">👋</span>
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Track your fractional real estate investments, portfolio valuation, and ledger activity.
+              Your real estate portfolio is building steadily. Here is your investment snapshot.
           </p>
         </div>
 
@@ -191,11 +192,13 @@ export function InvestorDashboard({
 
         {/* Total Realized Payouts */}
         <KpiCard
-          title="Total Payouts"
-          value={formatINR(activePortfolio.totalPayouts)}
-          subtitle="Realized from sales"
-          disclosure="Credited directly to wallet upon property sale"
-          icon="💰"
+            title="Current Gain"
+            value={`+${formatINR(activePortfolio.currentValue - activePortfolio.totalInvested)}`}
+            badge="Unrealized"
+            badgeType="positive"
+            subtitle="Portfolio appreciation"
+            disclosure="Estimated gain across current holdings"
+            icon="↗"
           loading={loading}
         />
 
@@ -223,6 +226,23 @@ export function InvestorDashboard({
           className="bg-gradient-to-br from-white to-blue-50/40"
         />
       </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: 'Invest now', icon: '↗', action: 'marketplace' },
+          { label: 'Add money', icon: '+', action: 'wallet' },
+          { label: 'View portfolio', icon: '▤', action: 'portfolio' },
+          { label: 'Transactions', icon: '⇄', action: 'wallet' }
+        ].map((item) => (
+          <button key={item.label} type="button" onClick={() => item.label === 'Add money' && onTopUpClick ? onTopUpClick() : onNavigate && onNavigate(item.action)} className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-[0_4px_14px_rgba(15,42,74,.035)] transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-lg font-bold text-emerald-700 transition group-hover:bg-emerald-600 group-hover:text-white">{item.icon}</span>
+            <span className="text-xs font-semibold text-[#0F2A4A] sm:text-sm">{item.label}</span>
+            <span className="ml-auto text-slate-300 transition group-hover:translate-x-1 group-hover:text-emerald-600">→</span>
+          </button>
+        ))}
+      </div>
+
+      <PerformanceChart />
 
       {/* Main Grid: Allocation Chart & Recent Transactions */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -279,9 +299,8 @@ export function InvestorDashboard({
                   <div key={tx._id} className="py-3 flex items-center justify-between gap-3 text-xs">
                     <div className="flex items-center space-x-3">
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                          isCredit ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
-                        }`}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${isCredit ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                          }`}
                       >
                         {isCredit ? '↓' : '↑'}
                       </div>
@@ -289,9 +308,8 @@ export function InvestorDashboard({
                         <div className="flex items-center space-x-2">
                           <span className="font-semibold text-gray-900">{tx.type}</span>
                           <span
-                            className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                              isCredit ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-700'
-                            }`}
+                            className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${isCredit ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-700'
+                              }`}
                           >
                             {tx.direction}
                           </span>
